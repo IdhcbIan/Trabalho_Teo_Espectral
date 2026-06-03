@@ -1,17 +1,26 @@
 """
-Spectral clustering on the DINOv2 KNN graph.
+Spectral Clustering on the DINOv2 KNN Graph
+-------------------------------------------
 
-This script implements the classical spectral clustering pipeline:
+Goal:
+    Cluster the Flowers images using a graph built from DINOv2 nearest-neighbor
+    rankings.
 
-    1. Load a nearest-neighbor ranking.
-    2. Build a weighted KNN graph.
-    3. Compute the normalized graph Laplacian.
-    4. Use the smallest Laplacian eigenvectors as a new representation.
-    5. Run KMeans in that spectral representation.
-    6. Evaluate the clusters against known labels.
+Pipeline:
 
-Labels are not used to form the clusters. They are used only at the end,
-to measure how well the unsupervised clusters recover the known classes.
+    1. Load the ranking JSON produced by Extract.py.
+    2. Build a weighted KNN graph W.
+    3. Compute the normalized graph Laplacian:
+
+           L = I - D^(-1/2) W D^(-1/2)
+
+    4. Take the smallest eigenvectors of L.
+    5. Normalize each row of the eigenvector matrix.
+    6. Run KMeans in spectral space.
+    7. Evaluate clusters with Flowers labels.
+
+Labels are used only at the end for evaluation. They are not used to create
+the spectral clusters.
 """
 
 import argparse
@@ -33,284 +42,167 @@ from Aux import (
 )
 
 
-# ---------------------------------------------------------------------------
-# Project defaults
-# ---------------------------------------------------------------------------
-
 ROOT_DIR = Path(__file__).resolve().parents[3]
 DATASETS_DIR = ROOT_DIR / "DataSets"
 
-DEFAULT_RANKING_PATH = DATASETS_DIR / "Runs" / "dinov2_vits14_output.json"
-DEFAULT_OUTPUT_DIR = DATASETS_DIR / "Spectral"
 
+def main():
+    parser = argparse.ArgumentParser(description="Spectral clustering on a DINOv2 KNN graph.")
+    parser.add_argument("--ranking", type=Path, default=DATASETS_DIR / "Runs" / "dinov2_vits14_output.json")
+    parser.add_argument("--k", type=int, default=20)
+    parser.add_argument("--num-clusters", type=int, default=17)
+    parser.add_argument("--samples-per-class", type=int, default=80)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--layout-k", type=float, default=0.34)
+    parser.add_argument("--layout-iterations", type=int, default=180)
+    parser.add_argument("--layout-scale", type=float, default=1.35)
+    parser.add_argument("--output-dir", type=Path, default=DATASETS_DIR / "Spectral")
+    args = parser.parse_args()
 
-# ---------------------------------------------------------------------------
-# 0. Data loading and graph construction
-# ---------------------------------------------------------------------------
+    args.output_dir.mkdir(parents=True, exist_ok=True)
 
-def load_rankings(path):
-    """
-    Load the nearest-neighbor ranking matrix.
+    # ---------------------------------------------------------------------
+    # 1. Load nearest-neighbor rankings
+    # ---------------------------------------------------------------------
+    print("\n[1] Loading nearest-neighbor rankings")
 
-    The expected file is a JSON list of lists. Row i contains the ranked
-    neighbor indices for image i. The first element is usually i itself.
-    """
-    with open(path, "r") as f:
+    with open(args.ranking, "r") as f:
         rankings = np.array(json.load(f), dtype=int)
 
     if rankings.ndim != 2:
-        raise ValueError("Ranking JSON must be a 2D list with shape (n_samples, n_neighbors).")
+        raise ValueError("Ranking JSON must be a 2D list.")
 
-    return rankings
+    n_samples, n_ranked_neighbors = rankings.shape
+    print(f"Rankings shape: {rankings.shape}")
 
-
-def load_labels(path, num_samples, num_classes, samples_per_class):
-    """
-    Load labels for evaluation.
-
-    If no label file is provided, we use the Oxford-17 Flowers convention:
-    17 classes, 80 images per class, ordered by filename.
-    """
-    if path is not None:
-        labels = np.loadtxt(path, dtype=int)
-        if labels.ndim == 2:
-            labels = labels[:, -1]
-        if len(labels) != num_samples:
-            raise ValueError(f"Label file has {len(labels)} labels, but rankings have {num_samples} samples.")
-        return labels
-
-    expected_samples = num_classes * samples_per_class
-    if num_samples != expected_samples:
+    if args.k >= n_ranked_neighbors:
         raise ValueError(
-            "No label file was provided and the default Oxford-17 assumption does not match: "
-            f"{num_samples} samples != {num_classes} classes * {samples_per_class} samples."
+            f"k={args.k} is too large. Ranking file has only {n_ranked_neighbors} entries per row."
         )
 
-    return np.repeat(np.arange(num_classes), samples_per_class)
+    # ---------------------------------------------------------------------
+    # 2. Build the weighted KNN graph W
+    # ---------------------------------------------------------------------
+    print("\n[2] Building weighted KNN graph W")
 
+    # Row i of the ranking file contains neighbors of image i.
+    # The first entry is usually i itself, so we skip it.
+    #
+    # Edge weights are simple and readable:
+    #
+    #     rank 1 neighbor -> weight 1.0
+    #     rank 2 neighbor -> weight 0.5
+    #     rank r neighbor -> weight 1/r
+    W = np.zeros((n_samples, n_samples), dtype=float)
 
-def build_knn_adjacency(rankings, k):
-    """
-    Build a weighted, symmetric KNN adjacency matrix from rankings.
-
-    The closer a neighbor appears in the ranking, the stronger its edge:
-
-        rank 1 -> weight 1.0
-        rank 2 -> weight 0.5
-        rank r -> weight 1/r
-    """
-    num_samples, num_neighbors = rankings.shape
-    if k >= num_neighbors:
-        raise ValueError(f"k={k} is too large for ranking file with {num_neighbors} neighbors per sample.")
-
-    adjacency = np.zeros((num_samples, num_samples), dtype=float)
-
-    for source in range(num_samples):
-        neighbors = rankings[source, 1 : k + 1]
-        for rank, target in enumerate(neighbors, start=1):
-            if source == target:
+    for i in range(n_samples):
+        neighbors = rankings[i, 1 : args.k + 1]
+        for rank, j in enumerate(neighbors, start=1):
+            if i == j:
                 continue
-            weight = 1.0 / rank
-            adjacency[source, target] = max(adjacency[source, target], weight)
+            W[i, j] = max(W[i, j], 1.0 / rank)
 
-    return np.maximum(adjacency, adjacency.T)
+    # Spectral clustering expects an undirected graph.
+    # If either i links to j or j links to i, keep the strongest edge.
+    W = np.maximum(W, W.T)
 
-
-def graph_from_adjacency(adjacency):
-    """
-    Convert the adjacency matrix into a NetworkX graph.
-    """
     graph = nx.Graph()
-    graph.add_nodes_from(range(adjacency.shape[0]))
+    graph.add_nodes_from(range(n_samples))
+    rows, cols = np.nonzero(np.triu(W, k=1))
+    for i, j in zip(rows, cols):
+        graph.add_edge(int(i), int(j), weight=float(W[i, j]))
 
-    rows, cols = np.nonzero(np.triu(adjacency, k=1))
-    for source, target in zip(rows, cols):
-        graph.add_edge(
-            int(source),
-            int(target),
-            weight=float(adjacency[source, target]),
-        )
+    print(f"Nodes: {graph.number_of_nodes()}")
+    print(f"Edges: {graph.number_of_edges()}")
 
-    return graph
+    # ---------------------------------------------------------------------
+    # 3. Compute the normalized graph Laplacian
+    # ---------------------------------------------------------------------
+    print("\n[3] Computing normalized graph Laplacian")
 
+    # SciPy computes:
+    #
+    #     L = I - D^(-1/2) W D^(-1/2)
+    #
+    # where D is the diagonal degree matrix.
+    L = csgraph.laplacian(W, normed=True)
 
-# ---------------------------------------------------------------------------
-# 1. Spectral embedding
-# ---------------------------------------------------------------------------
+    # ---------------------------------------------------------------------
+    # 4. Take the smallest eigenvectors of L
+    # ---------------------------------------------------------------------
+    print("\n[4] Computing smallest eigenvectors")
 
-def compute_normalized_laplacian(adjacency):
-    """
-    Compute the normalized graph Laplacian.
+    # For the normalized Laplacian, cluster structure appears in the
+    # eigenvectors associated with the smallest eigenvalues.
+    eigenvalues, U = eigsh(L, k=args.num_clusters, which="SM")
 
-    If W is the weighted adjacency matrix and D is the degree matrix, the
-    normalized Laplacian is:
-
-        L_norm = I - D^(-1/2) W D^(-1/2)
-
-    This normalization makes the method less sensitive to degree variation.
-    """
-    return csgraph.laplacian(adjacency, normed=True)
-
-
-def compute_smallest_eigenvectors(laplacian, num_vectors):
-    """
-    Compute the eigenvectors associated with the smallest eigenvalues.
-
-    In spectral clustering, these low-frequency eigenvectors reveal the broad
-    connected structure of the graph. Nodes in the same natural group tend to
-    receive similar coordinates in this eigenvector space.
-    """
-    eigenvalues, eigenvectors = eigsh(laplacian, k=num_vectors, which="SM")
-
-    # eigsh does not guarantee sorted output. Sorting makes the result easier
-    # to inspect and keeps plots/exports stable.
     order = np.argsort(eigenvalues)
-    return eigenvalues[order], eigenvectors[:, order]
+    eigenvalues = eigenvalues[order]
+    U = U[:, order]
 
+    print(f"U shape: {U.shape}")
 
-def normalize_rows(matrix):
-    """
-    Normalize each row to unit length.
+    # ---------------------------------------------------------------------
+    # 5. Normalize each row of U
+    # ---------------------------------------------------------------------
+    print("\n[5] Row-normalizing eigenvectors")
 
-    This is the standard Ng-Jordan-Weiss step. After normalization, KMeans
-    clusters directions in spectral space instead of being dominated by row
-    magnitude.
-    """
-    row_norms = np.linalg.norm(matrix, axis=1, keepdims=True)
+    row_norms = np.linalg.norm(U, axis=1, keepdims=True)
     row_norms[row_norms == 0] = 1.0
-    return matrix / row_norms
+    Y = U / row_norms
 
+    # ---------------------------------------------------------------------
+    # 6. Run KMeans in spectral space
+    # ---------------------------------------------------------------------
+    print("\n[6] Running KMeans")
 
-def build_spectral_embedding(adjacency, num_clusters):
-    """
-    Convert a graph adjacency matrix into a spectral embedding.
-
-    Returns:
-        eigenvalues: the selected Laplacian eigenvalues.
-        embedding: one row per image, used as input to KMeans.
-    """
-    laplacian = compute_normalized_laplacian(adjacency)
-    eigenvalues, eigenvectors = compute_smallest_eigenvectors(laplacian, num_clusters)
-    embedding = normalize_rows(eigenvectors)
-    return eigenvalues, embedding
-
-
-# ---------------------------------------------------------------------------
-# 2. Clustering
-# ---------------------------------------------------------------------------
-
-def cluster_embedding_with_kmeans(embedding, num_clusters, seed):
-    """
-    Run KMeans on the spectral embedding.
-
-    KMeans is applied to the Laplacian eigenvector representation, not to the
-    original DINOv2 feature vectors.
-    """
-    kmeans = KMeans(
-        n_clusters=num_clusters,
+    clusters = KMeans(
+        n_clusters=args.num_clusters,
         n_init=50,
-        random_state=seed,
-    )
-    return kmeans.fit_predict(embedding)
+        random_state=args.seed,
+    ).fit_predict(Y)
 
+    # ---------------------------------------------------------------------
+    # 7. Evaluate with Flowers labels
+    # ---------------------------------------------------------------------
+    print("\n[7] Evaluating clusters")
 
-# ---------------------------------------------------------------------------
-# 3. Evaluation
-# ---------------------------------------------------------------------------
+    expected = args.num_clusters * args.samples_per_class
+    if n_samples != expected:
+        raise ValueError(f"Expected {expected} Flowers samples, found {n_samples}.")
 
-def build_cluster_label_confusion(true_labels, clusters):
-    """
-    Build a matrix where rows are discovered clusters and columns are labels.
+    labels = np.repeat(np.arange(args.num_clusters), args.samples_per_class)
 
-    Entry (i, j) counts how many samples from cluster i belong to true class j.
-    """
-    label_values = np.unique(true_labels)
-    cluster_values = np.unique(clusters)
+    # KMeans cluster ids are arbitrary. We use the Hungarian algorithm to find
+    # the best cluster->class mapping for accuracy reporting.
+    confusion = np.zeros((args.num_clusters, args.num_clusters), dtype=int)
 
-    confusion = np.zeros((len(cluster_values), len(label_values)), dtype=int)
-    cluster_to_row = {cluster: row for row, cluster in enumerate(cluster_values)}
-    label_to_col = {label: col for col, label in enumerate(label_values)}
+    for cluster_id in range(args.num_clusters):
+        for class_id in range(args.num_clusters):
+            confusion[cluster_id, class_id] = np.sum(
+                (clusters == cluster_id) & (labels == class_id)
+            )
 
-    for label, cluster in zip(true_labels, clusters):
-        row = cluster_to_row[cluster]
-        col = label_to_col[label]
-        confusion[row, col] += 1
+    rows, cols = linear_sum_assignment(confusion.max() - confusion)
+    cluster_to_class = {int(row): int(col) for row, col in zip(rows, cols)}
+    mapped_labels = np.array([cluster_to_class[c] for c in clusters])
 
-    return confusion, cluster_values, label_values
+    accuracy = np.mean(mapped_labels == labels)
+    ari = adjusted_rand_score(labels, clusters)
+    nmi = normalized_mutual_info_score(labels, clusters)
 
+    print(f"Accuracy after cluster-label matching: {accuracy:.4f}")
+    print(f"Adjusted Rand Index: {ari:.4f}")
+    print(f"Normalized Mutual Information: {nmi:.4f}")
+    print(f"Eigenvalues: {[round(float(v), 6) for v in eigenvalues]}")
+    print(f"Cluster mapping: {cluster_to_class}")
 
-def match_clusters_to_labels(true_labels, clusters):
-    """
-    Match arbitrary KMeans cluster IDs to class IDs.
+    # ---------------------------------------------------------------------
+    # 8. Compute graph layout and export JSON
+    # ---------------------------------------------------------------------
+    print("\n[8] Computing graph layout and exporting JSON")
 
-    KMeans cluster numbers have no semantic meaning: cluster 0 is not
-    necessarily class 0. For accuracy, we choose the one-to-one mapping that
-    maximizes agreement with true labels. This is solved with the Hungarian
-    algorithm.
-    """
-    confusion, cluster_values, label_values = build_cluster_label_confusion(
-        true_labels,
-        clusters,
-    )
-
-    # linear_sum_assignment minimizes cost. A large confusion count is good,
-    # so we convert counts to costs.
-    cost_matrix = confusion.max() - confusion
-    rows, cols = linear_sum_assignment(cost_matrix)
-
-    cluster_to_label = {
-        cluster_values[row]: label_values[col]
-        for row, col in zip(rows, cols)
-    }
-    mapped_labels = np.array([cluster_to_label[cluster] for cluster in clusters])
-
-    return mapped_labels, cluster_to_label, confusion
-
-
-def compute_clustering_metrics(true_labels, clusters, mapped_labels):
-    """
-    Compute evaluation metrics for the clustering result.
-    """
-    return {
-        "accuracy": np.mean(mapped_labels == true_labels),
-        "ari": adjusted_rand_score(true_labels, clusters),
-        "nmi": normalized_mutual_info_score(true_labels, clusters),
-    }
-
-
-def print_report(true_labels, clusters, mapped_labels, eigenvalues, cluster_to_label):
-    """
-    Print a compact, presentation-friendly clustering report.
-    """
-    metrics = compute_clustering_metrics(true_labels, clusters, mapped_labels)
-
-    print("\n=== Spectral Clustering Report ===")
-    print(f"Clusters: {len(np.unique(clusters))}")
-    print(f"Accuracy after optimal cluster-to-label mapping: {metrics['accuracy']:.4f}")
-    print(f"Adjusted Rand Index: {metrics['ari']:.4f}")
-    print(f"Normalized Mutual Information: {metrics['nmi']:.4f}")
-    print(f"Eigenvalues: {[round(float(value), 6) for value in eigenvalues]}")
-    print(
-        "Cluster mapping:",
-        {int(cluster): int(label) for cluster, label in cluster_to_label.items()},
-    )
-
-    print("\nPer-class accuracy after mapping:")
-    for label in np.unique(true_labels):
-        class_mask = true_labels == label
-        class_accuracy = np.mean(mapped_labels[class_mask] == true_labels[class_mask])
-        print(f"  Class {int(label):02d}: {class_accuracy:.4f} ({class_mask.sum()} samples)")
-
-
-# ---------------------------------------------------------------------------
-# 4. Visualization and export
-# ---------------------------------------------------------------------------
-
-def compute_graph_layout(graph, args):
-    """
-    Compute 2D graph coordinates for plots and JSON export.
-    """
-    return nx.spring_layout(
+    positions = nx.spring_layout(
         graph,
         k=args.layout_k,
         iterations=args.layout_iterations,
@@ -319,215 +211,74 @@ def compute_graph_layout(graph, args):
         scale=args.layout_scale,
     )
 
-
-def export_graph_json(graph, positions, true_labels, clusters, mapped_labels, output_path, k, eigenvalues):
-    """
-    Export the graph in the same JSON style used by the project visualizer.
-    """
-    export_data = {
+    graph_json = {
         "nodes": {},
         "edges": {},
         "graph_info": {
             "num_nodes": graph.number_of_nodes(),
             "num_edges": graph.number_of_edges(),
-            "k": k,
-            "method": "spectral_clustering",
-            "eigenvalues": [float(value) for value in eigenvalues],
+            "k": args.k,
+            "method": "knn_graph_spectral_clustering",
+            "eigenvalues": [float(v) for v in eigenvalues],
         },
     }
 
     for node_id in graph.nodes:
-        export_data["nodes"][str(node_id)] = {
+        graph_json["nodes"][str(node_id)] = {
             "position": [
                 float(positions[node_id][0]),
                 float(positions[node_id][1]),
             ],
             "attributes": {
-                "true_label": int(true_labels[node_id]),
+                "true_label": int(labels[node_id]),
                 "cluster": int(clusters[node_id]),
                 "mapped_label": int(mapped_labels[node_id]),
-                "correct": bool(true_labels[node_id] == mapped_labels[node_id]),
+                "correct": bool(labels[node_id] == mapped_labels[node_id]),
             },
         }
 
     for node_id in graph.nodes:
-        export_data["edges"][str(node_id)] = [
+        graph_json["edges"][str(node_id)] = [
             int(neighbor)
             for neighbor in graph.neighbors(node_id)
         ]
 
-    with open(output_path, "w") as f:
-        json.dump(export_data, f, indent=2)
+    output_stem = f"spectral_clustering_k{args.k}_c{args.num_clusters}"
 
+    with open(args.output_dir / f"{output_stem}.json", "w") as f:
+        json.dump(graph_json, f, indent=2)
 
-def save_numpy_outputs(output_dir, output_stem, clusters, mapped_labels, embedding, eigenvalues, confusion):
-    """
-    Save reusable NumPy artifacts for later analysis.
-    """
-    np.save(output_dir / f"{output_stem}_clusters.npy", clusters)
-    np.save(output_dir / f"{output_stem}_mapped_labels.npy", mapped_labels)
-    np.save(output_dir / f"{output_stem}_embedding.npy", embedding)
-    np.save(output_dir / f"{output_stem}_eigenvalues.npy", eigenvalues)
-    np.save(output_dir / f"{output_stem}_confusion.npy", confusion)
+    # ---------------------------------------------------------------------
+    # 9. Save arrays and plots
+    # ---------------------------------------------------------------------
+    print("\n[9] Saving outputs")
 
+    np.save(args.output_dir / f"{output_stem}_clusters.npy", clusters)
+    np.save(args.output_dir / f"{output_stem}_mapped_labels.npy", mapped_labels)
+    np.save(args.output_dir / f"{output_stem}_embedding.npy", Y)
+    np.save(args.output_dir / f"{output_stem}_eigenvalues.npy", eigenvalues)
+    np.save(args.output_dir / f"{output_stem}_confusion.npy", confusion)
 
-def save_visual_outputs(output_dir, output_stem, graph, positions, true_labels, clusters, mapped_labels, embedding):
-    """
-    Save the three visual outputs generated by the script.
-    """
     plot_graph_by_cluster(
         graph,
         positions,
         clusters,
-        output_dir / f"{output_stem}.png",
+        args.output_dir / f"{output_stem}.png",
     )
     plot_graph_by_correctness(
         graph,
         positions,
-        true_labels,
+        labels,
         mapped_labels,
-        output_dir / f"{output_stem}_correctness.png",
+        args.output_dir / f"{output_stem}_correctness.png",
     )
     plot_first_two_embedding_coordinates(
-        embedding,
+        Y,
         clusters,
-        output_dir / f"{output_stem}_embedding.png",
+        args.output_dir / f"{output_stem}_embedding.png",
     )
 
-
-def print_saved_files(output_dir, output_stem):
-    """
-    Print the generated output paths.
-    """
-    print("\nSaved files:")
-    print(f"  Clusters: {output_dir / f'{output_stem}_clusters.npy'}")
-    print(f"  Mapped labels: {output_dir / f'{output_stem}_mapped_labels.npy'}")
-    print(f"  Embedding: {output_dir / f'{output_stem}_embedding.npy'}")
-    print(f"  Eigenvalues: {output_dir / f'{output_stem}_eigenvalues.npy'}")
-    print(f"  Confusion matrix: {output_dir / f'{output_stem}_confusion.npy'}")
-    print(f"  Graph JSON: {output_dir / f'{output_stem}.json'}")
-    print(f"  Cluster plot: {output_dir / f'{output_stem}.png'}")
-    print(f"  Correctness plot: {output_dir / f'{output_stem}_correctness.png'}")
-    print(f"  Embedding plot: {output_dir / f'{output_stem}_embedding.png'}")
-
-
-# ---------------------------------------------------------------------------
-# 5. Command-line interface
-# ---------------------------------------------------------------------------
-
-def parse_args():
-    """
-    Define all experiment parameters exposed from the command line.
-    """
-    parser = argparse.ArgumentParser(
-        description="Run true spectral clustering: normalized Laplacian eigenvectors plus KMeans."
-    )
-    parser.add_argument("--ranking", type=Path, default=DEFAULT_RANKING_PATH)
-    parser.add_argument("--k", type=int, default=20)
-    parser.add_argument("--labels", type=Path, default=None)
-    parser.add_argument("--num-classes", type=int, default=17)
-    parser.add_argument("--samples-per-class", type=int, default=80)
-    parser.add_argument("--num-clusters", type=int, default=17)
-    parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--layout-k", type=float, default=0.34)
-    parser.add_argument("--layout-iterations", type=int, default=180)
-    parser.add_argument("--layout-scale", type=float, default=1.35)
-    return parser.parse_args()
-
-
-# ---------------------------------------------------------------------------
-# 6. Main experiment
-# ---------------------------------------------------------------------------
-
-def main():
-    """
-    Run the full spectral clustering experiment.
-    """
-    args = parse_args()
-    args.output_dir.mkdir(parents=True, exist_ok=True)
-
-    print("\n=== Loading data ===")
-    rankings = load_rankings(args.ranking)
-    true_labels = load_labels(
-        args.labels,
-        len(rankings),
-        args.num_classes,
-        args.samples_per_class,
-    )
-    print(f"Ranking matrix: {rankings.shape}")
-    print(f"Number of labels: {len(true_labels)}")
-
-    print("\n=== Building KNN graph ===")
-    adjacency = build_knn_adjacency(rankings, args.k)
-    graph = graph_from_adjacency(adjacency)
-    print(f"Nodes: {graph.number_of_nodes()}")
-    print(f"Edges: {graph.number_of_edges()}")
-
-    print("\n=== Computing spectral embedding ===")
-    eigenvalues, embedding = build_spectral_embedding(
-        adjacency,
-        args.num_clusters,
-    )
-    print(f"Spectral embedding shape: {embedding.shape}")
-
-    print("\n=== Running KMeans ===")
-    clusters = cluster_embedding_with_kmeans(
-        embedding,
-        args.num_clusters,
-        args.seed,
-    )
-
-    print("\n=== Matching clusters to labels for evaluation ===")
-    mapped_labels, cluster_to_label, confusion = match_clusters_to_labels(
-        true_labels,
-        clusters,
-    )
-
-    print("\n=== Computing graph layout ===")
-    positions = compute_graph_layout(graph, args)
-
-    output_stem = f"spectral_clustering_k{args.k}_c{args.num_clusters}"
-
-    print("\n=== Saving outputs ===")
-    save_numpy_outputs(
-        args.output_dir,
-        output_stem,
-        clusters,
-        mapped_labels,
-        embedding,
-        eigenvalues,
-        confusion,
-    )
-    export_graph_json(
-        graph,
-        positions,
-        true_labels,
-        clusters,
-        mapped_labels,
-        args.output_dir / f"{output_stem}.json",
-        args.k,
-        eigenvalues,
-    )
-    save_visual_outputs(
-        args.output_dir,
-        output_stem,
-        graph,
-        positions,
-        true_labels,
-        clusters,
-        mapped_labels,
-        embedding,
-    )
-
-    print_report(
-        true_labels,
-        clusters,
-        mapped_labels,
-        eigenvalues,
-        cluster_to_label,
-    )
-    print_saved_files(args.output_dir, output_stem)
+    print(f"Saved to: {args.output_dir}")
 
 
 if __name__ == "__main__":

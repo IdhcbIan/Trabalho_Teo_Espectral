@@ -11,7 +11,7 @@
     <div class="wrap top">
       <div class="eyebrow">Code/Core/SpectralClustering/spectral_clustering.py</div>
       <h1>True Spectral Clustering</h1>
-      <p>This page documents every important part of <code>spectral_clustering.py</code>: inputs, graph construction, normalized Laplacian eigenvectors, KMeans clustering, label matching, metrics, exported files, and the plotting helpers in <code>Aux.py</code>.</p>
+      <p>This page documents both spectral clustering implementations: the KNN-ranking graph version and the literal Ng-Jordan-Weiss cosine-affinity version.</p>
     </div>
     <div class="wrap">
       <nav>
@@ -25,23 +25,31 @@
   </header>
 
   <main class="wrap">
-    <h2>Purpose</h2>
-    <p><code>spectral_clustering.py</code> is the unsupervised clustering script for the project. It starts from the same nearest-neighbor ranking produced by the DINOv2 extraction pipeline, builds a KNN graph, computes the normalized graph Laplacian, embeds every image using Laplacian eigenvectors, and finally runs KMeans in that spectral space.</p>
+    <h2>Two Implementations</h2>
+    <table>
+      <thead><tr><th>Script</th><th>Affinity graph</th><th>Why it exists</th></tr></thead>
+      <tbody>
+        <tr><td><code>Code/Core/SpectralClustering/spectral_clustering.py</code></td><td>Weighted graph from DINOv2 nearest-neighbor rankings.</td><td>This gives the best spring-layout graph visualization and matches the project retrieval/ranking pipeline.</td></tr>
+        <tr><td><code>Code/Core/SpectralClustering_2/ng_jordan_weiss.py</code></td><td>Dense cosine-similarity affinity matrix from <code>DataSets/Emb/Flowers_emb.pt</code>.</td><td>This follows the Ng-Jordan-Weiss paper more literally.</td></tr>
+      </tbody>
+    </table>
 
     <div class="note">
-      <strong>Important distinction:</strong> this script does not use seed labels to create clusters. Ground-truth labels are used only after clustering, to measure how well the discovered clusters match the known Flowers classes.
+      <strong>Important distinction:</strong> both scripts are unsupervised. Ground-truth Flowers labels are used only after clustering, to measure how well the discovered clusters match the known classes.
     </div>
 
     <h2>Run Command</h2>
-    <pre><code>python3 Code/Core/SpectralClustering/spectral_clustering.py --k 20</code></pre>
+    <pre><code>python3 Code/Core/SpectralClustering/spectral_clustering.py --k 20
+python3 Code/Core/SpectralClustering_2/ng_jordan_weiss.py</code></pre>
 
     <p>Useful variants:</p>
     <pre><code>python3 Code/Core/SpectralClustering/spectral_clustering.py --k 10
 python3 Code/Core/SpectralClustering/spectral_clustering.py --k 40
 python3 Code/Core/SpectralClustering/spectral_clustering.py --k 20 --num-clusters 17
-python3 Code/Core/SpectralClustering/spectral_clustering.py --k 20 --layout-iterations 80</code></pre>
+python3 Code/Core/SpectralClustering_2/ng_jordan_weiss.py --plot-neighbors 12
+python3 Code/Core/SpectralClustering_2/ng_jordan_weiss.py --layout-iterations 80</code></pre>
 
-    <h2>High-Level Pipeline</h2>
+    <h2>KNN-Graph Pipeline</h2>
     <ol>
       <li>Read nearest-neighbor rankings from <code>DataSets/Runs/dinov2_vits14_output.json</code>.</li>
       <li>Load or infer true labels for evaluation.</li>
@@ -53,6 +61,20 @@ python3 Code/Core/SpectralClustering/spectral_clustering.py --k 20 --layout-iter
       <li>Run KMeans on the spectral embedding.</li>
       <li>Map cluster IDs to true class IDs with the Hungarian algorithm for evaluation.</li>
       <li>Export arrays, graph JSON, and visual plots.</li>
+    </ol>
+
+    <h2>Ng-Jordan-Weiss Pipeline</h2>
+    <ol>
+      <li>Load Flowers embeddings from <code>DataSets/Emb/Flowers_emb.pt</code>.</li>
+      <li>L2-normalize the embeddings.</li>
+      <li>Build dense cosine affinity matrix <code>A = X X^T</code>.</li>
+      <li>Clamp negative cosine similarities to zero and clear the diagonal.</li>
+      <li>Compute <code>L = D^(-1/2) A D^(-1/2)</code>.</li>
+      <li>Take the largest eigenvectors of the normalized affinity matrix.</li>
+      <li>Normalize each row of the eigenvector matrix.</li>
+      <li>Run KMeans on the normalized rows.</li>
+      <li>Evaluate clusters with Flowers labels using Hungarian cluster-to-class matching.</li>
+      <li>Save arrays and the same three plots: cluster graph, correctness graph, and spectral scatter plot.</li>
     </ol>
 
     <h2>Imports</h2>
@@ -268,12 +290,12 @@ red   -> wrong</code></pre>
     <table>
       <thead><tr><th>Metric</th><th>Value</th></tr></thead>
       <tbody>
-        <tr><td>K</td><td>20</td></tr>
-        <tr><td>Clusters</td><td>17</td></tr>
-        <tr><td>Accuracy after optimal mapping</td><td>0.9993</td></tr>
-        <tr><td>Adjusted Rand Index</td><td>0.9984</td></tr>
-        <tr><td>Normalized Mutual Information</td><td>0.9986</td></tr>
-        <tr><td>Only class below perfect accuracy</td><td>Class 11, 0.9875 over 80 samples</td></tr>
+        <tr><td>KNN graph accuracy</td><td>0.9993</td></tr>
+        <tr><td>KNN graph ARI</td><td>0.9984</td></tr>
+        <tr><td>KNN graph NMI</td><td>0.9986</td></tr>
+        <tr><td>Ng-Jordan-Weiss accuracy</td><td>0.9949</td></tr>
+        <tr><td>Ng-Jordan-Weiss ARI</td><td>0.9890</td></tr>
+        <tr><td>Ng-Jordan-Weiss NMI</td><td>0.9906</td></tr>
       </tbody>
     </table>
 
