@@ -38,7 +38,7 @@ def dinov2_inference(model_name, image_paths):
     ])
 
     # Process images in smaller batches
-    batch_size = len(image_paths) // 10  # Adjust based on your GPU memory
+    batch_size = max(1, len(image_paths) // 10)  # Adjust based on your GPU memory
     all_features = []
     
     for i in range(0, len(image_paths), batch_size):

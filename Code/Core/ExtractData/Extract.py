@@ -12,12 +12,29 @@
 
 ############// Selecionando as imagens!! //#####################################
 
+import json
+import os
+import time
+from pathlib import Path
+
+import natsort
+import numpy as np
+from sklearn.neighbors import BallTree
+
+from DinoV2 import dinov2_inference
+
+
+BASE_DIR = Path(__file__).resolve().parent
+CORE_DIR = BASE_DIR.parent
+DATASETS_DIR = CORE_DIR.parent.parent / "DataSets"
+
+dataset_name = "Flowers"
+model_name = "dinov2_vits14"
 
 # Diretório com as imagens
 #os.chdir(image_dir)
-imgs_path = '../../../DataSets/Flowers/imgs'  # Caminho onde as imagens estão armazenadas
+imgs_path = DATASETS_DIR / dataset_name / "imgs"  # Caminho onde as imagens estão armazenadas
 images = natsort.natsorted(os.listdir(imgs_path))  # Lista ordenada de imagens
-DataSet = "Flowers"
 
 # Inicialização da lista de features e arquivo de saída
 #features = []  # Lista para armazenar as features extraídas
@@ -59,7 +76,7 @@ features = dinov2_inference(model_name, image_paths)
 
 
 # Salvando as features
-emb_path = "../../../DataSets/Emb/" + dataset_name + "_emb.npy"
+emb_path = DATASETS_DIR / "Emb" / f"{dataset_name}_emb.npy"
 
 np.save(emb_path, features)
 print("Done!")
@@ -72,7 +89,6 @@ print("Done!")
 
 
 import numpy as np
-from sklearn.neighbors import BallTree
 
 
 def run_ball_tree(features, k=100):
@@ -91,6 +107,7 @@ def run_ball_tree(features, k=100):
     tree = BallTree(features)
 
     # Realiza a consulta para encontrar os k vizinhos mais próximos
+    k = min(k, len(features))
     _, rks = tree.query(features, k=k)
 
     return rks
@@ -103,11 +120,10 @@ rks = run_ball_tree(features)
 ############// Exportando as listas Ranqueadas!! //#####################################
 
 
-import json
-
 # Convert NumPy array to JSON and export
-os.chdir("../Runs")
-with open(model_name + "_output.json", "w") as json_file:
+runs_dir = DATASETS_DIR / "Runs"
+runs_dir.mkdir(exist_ok=True)
+with open(runs_dir / f"{model_name}_output.json", "w") as json_file:
     # Format the JSON with proper indentation for readability
     json.dump(rks.tolist(), json_file, indent=4)
     # Ensure the file is properly closed and flushed
@@ -116,9 +132,8 @@ with open(model_name + "_output.json", "w") as json_file:
 
 
 ############// Plotting the graph!! //#####################################
-os.chdir("..")
 
-rks_path = "./Runs/" + model_name + "_output.json"
+rks_path = runs_dir / f"{model_name}_output.json"
 with open(rks_path, "r") as f:
     print("FOUND FILE!!")
     rankings = json.load(f)
@@ -126,9 +141,10 @@ with open(rks_path, "r") as f:
 # Convert to numpy array
 rankings = np.array(rankings)
 
-os.chdir("./Plots")
+plots_dir = DATASETS_DIR / "Plots"
+plots_dir.mkdir(exist_ok=True)
+os.chdir(plots_dir)
 
-import os
 from Graph import plot_and_export
 
 k_list = [10, 20, 30, 40, 60, 80]

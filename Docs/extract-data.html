@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Feature Extraction</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <div class="wrap top">
+      <div class="eyebrow">Code/Core/ExtractData</div>
+      <h1>Feature Extraction</h1>
+      <p>This page documents <code>Extract.py</code> and <code>DinoV2.py</code>.</p>
+    </div>
+    <div class="wrap">
+      <nav>
+        <a href="index.html">Overview</a>
+        <a href="data-flow.html">Data Flow</a>
+        <a href="extract-data.html">Feature Extraction</a>
+        <a href="graph-export.html">Graph Export</a>
+        <a href="spectral.html">Spectral Clustering</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <h2><code>Extract.py</code></h2>
+    <p><code>Extract.py</code> is the main script for producing embeddings, rankings, and KNN graph exports from the Flowers image directory.</p>
+
+    <h3>Configuration</h3>
+    <table>
+      <thead><tr><th>Name</th><th>Current value</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td><code>dataset_name</code></td><td><code>Flowers</code></td><td>Selects <code>DataSets/Flowers/imgs</code> and output embedding filename.</td></tr>
+        <tr><td><code>model_name</code></td><td><code>dinov2_vits14</code></td><td>Model name passed to <code>torch.hub.load</code>.</td></tr>
+        <tr><td><code>k_list</code></td><td><code>[10, 20, 30, 40, 60, 80]</code></td><td>K values used when exporting graph JSON files.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Important Steps</h3>
+    <ol>
+      <li>Resolve project paths from <code>Path(__file__).resolve()</code>, so the script does not depend on the shell working directory.</li>
+      <li>Load filenames with <code>os.listdir</code> and sort with <code>natsort.natsorted</code>.</li>
+      <li>Keep only <code>.jpg</code> files and build full image paths.</li>
+      <li>Call <code>dinov2_inference(model_name, image_paths)</code>.</li>
+      <li>Save embeddings to <code>DataSets/Emb/Flowers_emb.npy</code>.</li>
+      <li>Build nearest-neighbor rankings with <code>sklearn.neighbors.BallTree</code>.</li>
+      <li>Write rankings to <code>DataSets/Runs/dinov2_vits14_output.json</code>.</li>
+      <li>Call <code>plot_and_export</code> to write graph JSON files under <code>DataSets/Plots</code>.</li>
+    </ol>
+
+    <h2><code>DinoV2.py</code></h2>
+    <p><code>DinoV2.py</code> contains the model inference function. It chooses CUDA when available, otherwise CPU.</p>
+
+    <h3>Image Transform</h3>
+    <pre><code>Resize(256)
+CenterCrop(224)
+ToTensor()
+Normalize(mean=[0.485, 0.456, 0.406],
+          std=[0.229, 0.224, 0.225])</code></pre>
+
+    <h3>Batching</h3>
+    <p>The batch size is <code>max(1, len(image_paths) // 10)</code>. This prevents a zero batch size for small datasets and splits the dataset into roughly ten batches.</p>
+
+    <h3>Output</h3>
+    <p>The function returns a single NumPy matrix made by vertically stacking all batch outputs. For current Flowers data, the saved result has shape <code>1360 x 384</code>.</p>
+  </main>
+
+  <footer class="footer"><div class="wrap">Feature extraction documentation.</div></footer>
+</body>
+</html>

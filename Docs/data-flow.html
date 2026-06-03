@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Data Flow</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <div class="wrap top">
+      <div class="eyebrow">Pipeline</div>
+      <h1>Data Flow</h1>
+      <p>The project converts image files into embeddings, rankings, graph exports, and spectral clustering outputs.</p>
+    </div>
+    <div class="wrap">
+      <nav>
+        <a href="index.html">Overview</a>
+        <a href="data-flow.html">Data Flow</a>
+        <a href="extract-data.html">Feature Extraction</a>
+        <a href="graph-export.html">Graph Export</a>
+        <a href="spectral.html">Spectral Clustering</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <h2>End-to-End Flow</h2>
+    <ol>
+      <li><code>DataSets/Flowers/imgs</code> contains image files named <code>image_0001.jpg</code> through <code>image_1360.jpg</code>.</li>
+      <li><code>Extract.py</code> sorts the filenames naturally so numerical order is preserved.</li>
+      <li><code>DinoV2.py</code> preprocesses each image and returns a feature matrix.</li>
+      <li>The feature matrix is saved as <code>DataSets/Emb/Flowers_emb.npy</code>.</li>
+      <li><code>BallTree</code> queries nearest neighbors for every image and exports rankings to <code>DataSets/Runs/dinov2_vits14_output.json</code>.</li>
+      <li><code>Graph.py</code> converts those rankings into KNN graph JSON files in <code>DataSets/Plots</code>.</li>
+      <li><code>spectral_clustering.py</code> reads the ranking JSON, builds a weighted KNN adjacency matrix, computes normalized Laplacian eigenvectors, and runs KMeans in spectral space.</li>
+      <li>Spectral clustering outputs are written to <code>DataSets/Spectral</code>.</li>
+    </ol>
+
+    <h2>Generated Artifacts</h2>
+    <table>
+      <thead>
+        <tr><th>Artifact</th><th>Format</th><th>Meaning</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>Flowers_emb.npy</code></td><td>NumPy array</td><td>One DINOv2 feature vector per image.</td></tr>
+        <tr><td><code>dinov2_vits14_output.json</code></td><td>JSON list</td><td>For each node, ordered nearest-neighbor indices.</td></tr>
+        <tr><td><code>dinov2_vits14_output_20.json</code></td><td>Graph JSON</td><td>KNN graph using 20 outgoing neighbors per image.</td></tr>
+        <tr><td><code>spectral_clustering_k20_c17_clusters.npy</code></td><td>NumPy array</td><td>KMeans cluster assignment from normalized Laplacian eigenvectors.</td></tr>
+        <tr><td><code>spectral_clustering_k20_c17_embedding.npy</code></td><td>NumPy array</td><td>Spectral embedding used by KMeans.</td></tr>
+      </tbody>
+    </table>
+  </main>
+
+  <footer class="footer"><div class="wrap">Data flow documentation.</div></footer>
+</body>
+</html>

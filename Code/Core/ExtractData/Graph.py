@@ -83,7 +83,8 @@ def visualize_knn_graph(rankings, k=16, figsize=(15, 10), title=None,
     if save_path:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
     
-    plt.show()
+    # For Live Visualizations!!
+    #plt.show()
     
     # Print some graph statistics
     print(f"Graph info: {len(G.nodes)} nodes, {len(G.edges)} edges")
@@ -136,67 +137,4 @@ def export_graph_positions(G, pos,model_name, k):
     print(f"Saved to: {path}")
     return path
 
-"""
--------------------------------------------------------------------------------------------
-// Exaple KNN //
-
-Lets say you have your Features and you want to create 
-    your own KNN graph to upload.
-
-OBS: You can modify the networkx code in the function
-   visualize_knn_graph to generate you other types of graph.
-   this. Or replave it entirely and then call export_graph_positions
-   on it, this inside plot_and_export. 
-
-   For how to extract features and a more full aproach I recoment looking at the 
-   extactor inference from: https://github.com/IdhcbIan/Visualizing_GCNs
-   there you will have a Graph.py just like this one with the same visualize_knn_graph
-   function you can modify to produce the json plots to upload!
-
-   You can also find some extracted features inside: 
-   https://github.com/IdhcbIan/Visualizing_GCNs/tree/master/Extractor_Inference_Code/Emb
-
-
-   This will produce the .json to upload in the plataform!!
-"""
-
-model_name = 'alexnet'
-features = np.load('alexnet_emb.npy')
-
-
-import numpy as np
-from sklearn.neighbors import BallTree
-
-
-def run_ball_tree(features, k=100):
-    """
-    Constrói uma estrutura BallTree a partir das features e retorna os rankings dos vizinhos mais próximos.
-    """
-
-    # Verifica se as features são válidas
-    if not isinstance(features, np.ndarray):
-        raise ValueError("As 'features' devem ser um array do tipo numpy.ndarray.")
-    if features.ndim != 2:
-        raise ValueError("As 'features' devem ser um array 2D no formato (n_samples, n_features).")
-
-    # Cria a estrutura BallTree
-    tree = BallTree(features)
-
-    # Realiza a consulta para encontrar os k vizinhos mais próximos
-    _, rks = tree.query(features, k=k)
-
-    return rks
-
-
-rks = run_ball_tree(features)
-
-
-# Then Create the Graph!
-
-k_list = [10, 20, 30, 40, 60, 80]
-
-plot_and_export(rks, k_list, model_name)
-
-
 #------------// End of the program //--------------------------
-

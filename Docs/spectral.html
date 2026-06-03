@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spectral Clustering Script Documentation</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <div class="wrap top">
+      <div class="eyebrow">Code/Core/SpectralClustering/spectral_clustering.py</div>
+      <h1>True Spectral Clustering</h1>
+      <p>This page documents every important part of <code>spectral_clustering.py</code>: inputs, graph construction, normalized Laplacian eigenvectors, KMeans clustering, label matching, metrics, exported files, and the plotting helpers in <code>Aux.py</code>.</p>
+    </div>
+    <div class="wrap">
+      <nav>
+        <a href="index.html">Overview</a>
+        <a href="data-flow.html">Data Flow</a>
+        <a href="extract-data.html">Feature Extraction</a>
+        <a href="graph-export.html">Graph Export</a>
+        <a href="spectral.html">Spectral Clustering</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <h2>Purpose</h2>
+    <p><code>spectral_clustering.py</code> is the unsupervised clustering script for the project. It starts from the same nearest-neighbor ranking produced by the DINOv2 extraction pipeline, builds a KNN graph, computes the normalized graph Laplacian, embeds every image using Laplacian eigenvectors, and finally runs KMeans in that spectral space.</p>
+
+    <div class="note">
+      <strong>Important distinction:</strong> this script does not use seed labels to create clusters. Ground-truth labels are used only after clustering, to measure how well the discovered clusters match the known Flowers classes.
+    </div>
+
+    <h2>Run Command</h2>
+    <pre><code>python3 Code/Core/SpectralClustering/spectral_clustering.py --k 20</code></pre>
+
+    <p>Useful variants:</p>
+    <pre><code>python3 Code/Core/SpectralClustering/spectral_clustering.py --k 10
+python3 Code/Core/SpectralClustering/spectral_clustering.py --k 40
+python3 Code/Core/SpectralClustering/spectral_clustering.py --k 20 --num-clusters 17
+python3 Code/Core/SpectralClustering/spectral_clustering.py --k 20 --layout-iterations 80</code></pre>
+
+    <h2>High-Level Pipeline</h2>
+    <ol>
+      <li>Read nearest-neighbor rankings from <code>DataSets/Runs/dinov2_vits14_output.json</code>.</li>
+      <li>Load or infer true labels for evaluation.</li>
+      <li>Build a weighted KNN adjacency matrix <code>W</code>.</li>
+      <li>Symmetrize <code>W</code>, producing an undirected weighted graph.</li>
+      <li>Compute the normalized graph Laplacian.</li>
+      <li>Compute the smallest <code>num_clusters</code> eigenvectors.</li>
+      <li>Normalize each row of the eigenvector matrix.</li>
+      <li>Run KMeans on the spectral embedding.</li>
+      <li>Map cluster IDs to true class IDs with the Hungarian algorithm for evaluation.</li>
+      <li>Export arrays, graph JSON, and visual plots.</li>
+    </ol>
+
+    <h2>Imports</h2>
+    <table>
+      <thead><tr><th>Import</th><th>Why it is used</th></tr></thead>
+      <tbody>
+        <tr><td><code>argparse</code></td><td>Defines command-line options such as <code>--k</code>, <code>--num-clusters</code>, and layout parameters.</td></tr>
+        <tr><td><code>json</code></td><td>Exports graph data in the same JSON style used by the project visualization pipeline.</td></tr>
+        <tr><td><code>Path</code></td><td>Builds stable paths relative to the project root.</td></tr>
+        <tr><td><code>networkx</code></td><td>Builds graph objects and computes spring-layout coordinates for visualization.</td></tr>
+        <tr><td><code>numpy</code></td><td>Stores arrays, computes masks, saves <code>.npy</code> outputs, and handles numeric operations.</td></tr>
+        <tr><td><code>linear_sum_assignment</code></td><td>Runs the Hungarian algorithm to map arbitrary cluster IDs to class IDs for accuracy.</td></tr>
+        <tr><td><code>csgraph</code></td><td>Computes the normalized graph Laplacian from the adjacency matrix.</td></tr>
+        <tr><td><code>eigsh</code></td><td>Computes the smallest eigenvalues and eigenvectors of the sparse Laplacian.</td></tr>
+        <tr><td><code>KMeans</code></td><td>Clusters rows of the spectral embedding.</td></tr>
+        <tr><td><code>adjusted_rand_score</code>, <code>normalized_mutual_info_score</code></td><td>Evaluate cluster quality independently of raw cluster ID numbering.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Plotting Module: <code>Aux.py</code></h2>
+    <p>The plotting functions were moved to <code>Code/Core/SpectralClustering/Aux.py</code> so the main spectral clustering script can stay focused on the algorithm. <code>spectral_clustering.py</code> imports these helpers:</p>
+    <pre><code>from Aux import (
+    plot_first_two_embedding_coordinates,
+    plot_graph_by_cluster,
+    plot_graph_by_correctness,
+)</code></pre>
+
+    <table>
+      <thead><tr><th>Aux.py item</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td><code>matplotlib.pyplot</code></td><td>Saves and displays the PNG plots.</td></tr>
+        <tr><td><code>networkx</code></td><td>Draws graph nodes and edges using positions computed by the main script.</td></tr>
+        <tr><td><code>numpy</code></td><td>Builds green/red correctness colors from Boolean prediction masks.</td></tr>
+        <tr><td><code>plot_graph_by_cluster</code></td><td>Plots the KNN graph colored by spectral cluster ID.</td></tr>
+        <tr><td><code>plot_graph_by_correctness</code></td><td>Plots correct nodes in green and wrong nodes in red.</td></tr>
+        <tr><td><code>plot_first_two_embedding_coordinates</code></td><td>Plots the first two spectral embedding coordinates as a scatter plot.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Data and Graph Helpers</h2>
+    <p>The spectral script keeps its data-loading and KNN graph-construction helpers inside <code>spectral_clustering.py</code>, so the presentation code is self-contained. Plotting helpers live separately in <code>Aux.py</code>.</p>
+
+    <table>
+      <thead><tr><th>Helper</th><th>Role in spectral clustering</th></tr></thead>
+      <tbody>
+        <tr><td><code>load_rankings</code></td><td>Reads the ranking JSON into a 2D integer NumPy array.</td></tr>
+        <tr><td><code>load_labels</code></td><td>Loads explicit labels if provided; otherwise assumes Oxford-17 ordering with 17 classes and 80 samples per class.</td></tr>
+        <tr><td><code>build_knn_adjacency</code></td><td>Builds the weighted symmetric adjacency matrix used by both methods.</td></tr>
+        <tr><td><code>graph_from_adjacency</code></td><td>Creates a NetworkX graph from the adjacency matrix for visualization and JSON export.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Command-Line Arguments</h2>
+    <table>
+      <thead><tr><th>Argument</th><th>Default</th><th>Explanation</th></tr></thead>
+      <tbody>
+        <tr><td><code>--ranking</code></td><td><code>DataSets/Runs/dinov2_vits14_output.json</code></td><td>Nearest-neighbor ranking matrix. Each row stores neighbors for one image.</td></tr>
+        <tr><td><code>--k</code></td><td><code>20</code></td><td>How many neighbors from each ranking row are used to build the KNN graph.</td></tr>
+        <tr><td><code>--labels</code></td><td>None</td><td>Optional label file. If a two-column file is passed, the last column is used as the label.</td></tr>
+        <tr><td><code>--num-classes</code></td><td><code>17</code></td><td>Used only for the default Oxford-17 label assumption.</td></tr>
+        <tr><td><code>--samples-per-class</code></td><td><code>80</code></td><td>Used only for the default Oxford-17 label assumption.</td></tr>
+        <tr><td><code>--num-clusters</code></td><td><code>17</code></td><td>Number of eigenvectors and KMeans clusters.</td></tr>
+        <tr><td><code>--output-dir</code></td><td><code>DataSets/Spectral</code></td><td>Destination for generated arrays, plots, and graph JSON.</td></tr>
+        <tr><td><code>--seed</code></td><td><code>42</code></td><td>Random seed for KMeans and NetworkX spring layout.</td></tr>
+        <tr><td><code>--layout-k</code></td><td><code>0.34</code></td><td>Spring-layout spacing. Larger values push nodes farther apart.</td></tr>
+        <tr><td><code>--layout-iterations</code></td><td><code>180</code></td><td>Number of force-directed layout iterations.</td></tr>
+        <tr><td><code>--layout-scale</code></td><td><code>1.35</code></td><td>Final coordinate scale for graph plots and exported positions.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Graph Construction</h2>
+    <p>The ranking file contains rows like <code>[0, 7, 20, 39, ...]</code>. The first item is usually the node itself. For <code>k=20</code>, the script uses the next 20 entries as neighbors.</p>
+
+    <p>The adjacency matrix is weighted by neighbor rank:</p>
+    <pre><code>rank 1 neighbor  -> weight 1.0
+rank 2 neighbor  -> weight 0.5
+rank 3 neighbor  -> weight 0.333...
+...
+rank 20 neighbor -> weight 0.05</code></pre>
+
+    <p>The graph is then symmetrized with <code>max(W, W.T)</code>. If image A considers image B a close neighbor, the undirected graph keeps that relation even if B did not rank A the same way.</p>
+
+    <h2>Function: <code>spectral_embedding</code></h2>
+    <pre><code>def spectral_embedding(adjacency, num_clusters):
+    laplacian = csgraph.laplacian(adjacency, normed=True)
+    eigenvalues, eigenvectors = eigsh(laplacian, k=num_clusters, which="SM")
+    ...
+    embedding = eigenvectors / row_norms
+    return eigenvalues, embedding</code></pre>
+
+    <h3>Normalized Laplacian</h3>
+    <p>The normalized graph Laplacian is computed by SciPy with <code>normed=True</code>. Conceptually, it is:</p>
+    <pre><code>L_norm = I - D^(-1/2) W D^(-1/2)</code></pre>
+
+    <p>Here, <code>W</code> is the weighted adjacency matrix and <code>D</code> is the diagonal degree matrix. Normalization reduces the effect of nodes with very different degrees.</p>
+
+    <h3>Smallest Eigenvectors</h3>
+    <p><code>eigsh(..., which="SM")</code> asks for the eigenvectors associated with the smallest eigenvalues. In spectral clustering, these eigenvectors reveal low-frequency graph structure: groups of nodes that are strongly connected internally and weakly connected externally.</p>
+
+    <h3>Sorting</h3>
+    <p>The eigenpairs are sorted by eigenvalue so the output is stable and interpretable:</p>
+    <pre><code>order = np.argsort(eigenvalues)
+eigenvalues = eigenvalues[order]
+eigenvectors = eigenvectors[:, order]</code></pre>
+
+    <h3>Row Normalization</h3>
+    <p>Each image is represented by one row in the eigenvector matrix. The script normalizes every row to unit length before KMeans:</p>
+    <pre><code>row_norms = np.linalg.norm(eigenvectors, axis=1, keepdims=True)
+embedding = eigenvectors / row_norms</code></pre>
+
+    <p>This is the common Ng-Jordan-Weiss spectral clustering step. It makes KMeans focus on angular cluster structure in the spectral space instead of raw vector magnitude.</p>
+
+    <h2>Function: <code>run_kmeans</code></h2>
+    <pre><code>def run_kmeans(embedding, num_clusters, seed):
+    kmeans = KMeans(n_clusters=num_clusters, n_init=50, random_state=seed)
+    return kmeans.fit_predict(embedding)</code></pre>
+
+    <p>KMeans receives the spectral embedding, not the original DINOv2 features. The parameter <code>n_init=50</code> runs KMeans multiple times with different initial centroids and keeps the best result. This reduces sensitivity to initialization.</p>
+
+    <h2>Function: <code>map_clusters_to_labels</code></h2>
+    <p>KMeans cluster IDs are arbitrary. Cluster <code>0</code> does not necessarily mean class <code>0</code>. To compute accuracy, the script creates a confusion matrix and finds the best one-to-one cluster-to-label assignment.</p>
+
+    <pre><code>rows, cols = linear_sum_assignment(confusion.max() - confusion)
+mapping = {cluster_ids[row]: true_labels[col] for row, col in zip(rows, cols)}</code></pre>
+
+    <p><code>linear_sum_assignment</code> solves the Hungarian assignment problem. Since it minimizes cost, the code transforms counts into costs using <code>confusion.max() - confusion</code>. Larger overlap becomes smaller cost.</p>
+
+    <h2>Evaluation Metrics</h2>
+    <table>
+      <thead><tr><th>Metric</th><th>What it means</th></tr></thead>
+      <tbody>
+        <tr><td><code>Accuracy after optimal mapping</code></td><td>Percentage of samples whose mapped cluster label equals the true label.</td></tr>
+        <tr><td><code>Adjusted Rand Index</code></td><td>Pairwise clustering agreement adjusted for chance. Good for evaluating partitions independent of cluster names.</td></tr>
+        <tr><td><code>Normalized Mutual Information</code></td><td>Information shared between predicted clusters and true labels, normalized to make scores comparable.</td></tr>
+        <tr><td><code>Per-class accuracy</code></td><td>Accuracy for each true class after optimal cluster mapping.</td></tr>
+        <tr><td><code>Eigenvalues</code></td><td>Small normalized Laplacian eigenvalues. Several near-zero values can indicate strongly separated graph components.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Plot Functions in <code>Aux.py</code></h2>
+    <h3><code>plot_graph</code></h3>
+    <p>Draws the KNN graph with NetworkX spring coordinates. Node color is the raw spectral cluster ID. This plot answers: “What clusters did KMeans discover on the graph?”</p>
+
+    <h3><code>plot_correctness_graph</code></h3>
+    <p>Draws the same graph layout, but colors nodes by correctness after cluster-to-label mapping:</p>
+    <pre><code>green -> correct
+red   -> wrong</code></pre>
+
+    <h3><code>plot_embedding</code></h3>
+    <p>Draws a scatter plot of the first two spectral embedding coordinates, colored by cluster. This is not the original image feature space; it is the graph-derived eigenvector space.</p>
+
+    <h2>Graph JSON Export</h2>
+    <p>The exported JSON follows the same broad structure as the graph files generated by <code>Graph.py</code>, but each node receives spectral clustering attributes.</p>
+
+    <pre><code>{
+  "nodes": {
+    "0": {
+      "position": [0.12, -0.44],
+      "attributes": {
+        "true_label": 0,
+        "cluster": 3,
+        "mapped_label": 0,
+        "correct": true
+      }
+    }
+  },
+  "edges": {
+    "0": [7, 20, 39]
+  },
+  "graph_info": {
+    "num_nodes": 1360,
+    "num_edges": 27196,
+    "k": 20,
+    "method": "spectral_clustering",
+    "eigenvalues": [...]
+  }
+}</code></pre>
+
+    <h2>Main Function Walkthrough</h2>
+    <ol>
+      <li><code>parse_args()</code> reads CLI arguments.</li>
+      <li>The output directory is created with <code>mkdir(parents=True, exist_ok=True)</code>.</li>
+      <li><code>load_rankings</code> reads the KNN ranking file.</li>
+      <li><code>load_labels</code> provides labels for evaluation.</li>
+      <li><code>build_knn_adjacency</code> constructs <code>W</code>.</li>
+      <li><code>spectral_embedding</code> computes eigenvalues and row-normalized eigenvectors.</li>
+      <li><code>run_kmeans</code> returns cluster IDs.</li>
+      <li><code>map_clusters_to_labels</code> maps arbitrary cluster IDs to class IDs for accuracy.</li>
+      <li><code>graph_from_adjacency</code> builds a NetworkX graph.</li>
+      <li><code>nx.spring_layout</code> computes graph coordinates for visualization and JSON export.</li>
+      <li>NumPy arrays are saved for later analysis.</li>
+      <li>Graph JSON and plots are exported.</li>
+      <li><code>print_metrics</code> prints metrics and per-class scores.</li>
+    </ol>
+
+    <h2>Output Files</h2>
+    <table>
+      <thead><tr><th>File</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>spectral_clustering_k20_c17_clusters.npy</code></td><td>Raw KMeans cluster ID for every image.</td></tr>
+        <tr><td><code>spectral_clustering_k20_c17_mapped_labels.npy</code></td><td>Cluster IDs converted to best-matching class labels.</td></tr>
+        <tr><td><code>spectral_clustering_k20_c17_embedding.npy</code></td><td>Row-normalized Laplacian eigenvector embedding used by KMeans.</td></tr>
+        <tr><td><code>spectral_clustering_k20_c17_eigenvalues.npy</code></td><td>Eigenvalues associated with the selected eigenvectors.</td></tr>
+        <tr><td><code>spectral_clustering_k20_c17_confusion.npy</code></td><td>Cluster-vs-class confusion matrix before Hungarian mapping.</td></tr>
+        <tr><td><code>spectral_clustering_k20_c17.json</code></td><td>Graph JSON with positions, edges, true labels, cluster IDs, mapped labels, and correctness.</td></tr>
+        <tr><td><code>spectral_clustering_k20_c17.png</code></td><td>Graph plot colored by spectral cluster.</td></tr>
+        <tr><td><code>spectral_clustering_k20_c17_correctness.png</code></td><td>Graph plot colored green for correct and red for wrong after mapping.</td></tr>
+        <tr><td><code>spectral_clustering_k20_c17_embedding.png</code></td><td>Scatter plot of the first two spectral embedding coordinates.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Latest Result</h2>
+    <table>
+      <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>K</td><td>20</td></tr>
+        <tr><td>Clusters</td><td>17</td></tr>
+        <tr><td>Accuracy after optimal mapping</td><td>0.9993</td></tr>
+        <tr><td>Adjusted Rand Index</td><td>0.9984</td></tr>
+        <tr><td>Normalized Mutual Information</td><td>0.9986</td></tr>
+        <tr><td>Only class below perfect accuracy</td><td>Class 11, 0.9875 over 80 samples</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Key Point</h2>
+    <p>This code is unsupervised spectral clustering. Labels are not used to create clusters; they are used only afterward to evaluate how well the discovered clusters align with known Flowers classes.</p>
+  </main>
+
+  <footer class="footer"><div class="wrap">Comprehensive spectral clustering documentation.</div></footer>
+</body>
+</html>

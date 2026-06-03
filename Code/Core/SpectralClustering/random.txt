@@ -1,0 +1,14 @@
+Okk, lets modify the script to do letraly Ng-
+  Jordan-Weiss algoritim, make the code simple and
+  elegant.
+ 
+  Load the embeddings, saved in the DataSets as a .pt
+  and then cauculate cos similarity over them. to
+  make your matrix
+ 
+ 
+  make this in a New dir called SpectralClustering_2.
+ 
+  Again, simple, and elegant code. No need for too
+  many funtions in t
+ 

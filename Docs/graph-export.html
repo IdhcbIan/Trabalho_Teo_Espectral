@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Graph Export</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <div class="wrap top">
+      <div class="eyebrow">Code/Core/ExtractData/Graph.py</div>
+      <h1>KNN Graph Export</h1>
+      <p><code>Graph.py</code> converts ranking arrays into NetworkX graphs and JSON files that can be loaded by graph visualization tools.</p>
+    </div>
+    <div class="wrap">
+      <nav>
+        <a href="index.html">Overview</a>
+        <a href="data-flow.html">Data Flow</a>
+        <a href="extract-data.html">Feature Extraction</a>
+        <a href="graph-export.html">Graph Export</a>
+        <a href="spectral.html">Spectral Clustering</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <h2>Main Functions</h2>
+    <table>
+      <thead><tr><th>Function</th><th>Responsibility</th></tr></thead>
+      <tbody>
+        <tr><td><code>plot_and_export(rankings, k_list, model_name)</code></td><td>Loops through each K value, builds a graph, computes positions, and exports JSON.</td></tr>
+        <tr><td><code>visualize_knn_graph(...)</code></td><td>Creates a directed KNN graph, runs <code>nx.spring_layout</code>, optionally saves a Matplotlib figure, and returns graph plus positions.</td></tr>
+        <tr><td><code>export_graph_positions(G, pos, model_name, k)</code></td><td>Writes node positions and outgoing neighbor lists into a JSON file.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Graph Construction</h2>
+    <p>Every image becomes a graph node. For node <code>i</code>, the script adds directed edges from <code>i</code> to the first <code>k</code> ranked neighbors, skipping the first ranking entry because it is usually the node itself.</p>
+
+    <pre><code>for i in range(len(rankings)):
+    for j in range(1, min(k + 1, len(rankings[i]))):
+        if i != rankings[i][j]:
+            G.add_edge(i, rankings[i][j])</code></pre>
+
+    <h2>Export Format</h2>
+    <pre><code>{
+  "nodes": {
+    "0": {
+      "position": [x, y],
+      "attributes": {}
+    }
+  },
+  "edges": {
+    "0": [7, 20, 39]
+  },
+  "graph_info": {
+    "num_nodes": 1360,
+    "num_edges": 27196,
+    "k": 20
+  }
+}</code></pre>
+
+    <div class="note">
+      <strong>Plot windows:</strong> <code>plt.show()</code> is currently commented out in <code>Graph.py</code>, so graph generation exports data without opening an interactive Matplotlib window.
+    </div>
+  </main>
+
+  <footer class="footer"><div class="wrap">Graph export documentation.</div></footer>
+</body>
+</html>
