@@ -10,7 +10,7 @@
   <header>
     <div class="wrap top">
       <div class="eyebrow">Project documentation</div>
-      <h1>DINOv2 embeddings, KNN graphs, and spectral clustering</h1>
+      <h1>DINOv2 embeddings, KNN graphs, and Laplacian propagation</h1>
       <p>This documentation explains the code in the project root, the generated dataset artifacts, and the graph-learning workflows.</p>
     </div>
     <div class="wrap">
@@ -19,7 +19,7 @@
         <a href="data-flow.html">Data Flow</a>
         <a href="extract-data.html">Feature Extraction</a>
         <a href="graph-export.html">Graph Export</a>
-        <a href="spectral.html">Spectral Clustering</a>
+        <a href="spectral.html">Laplacian Propagation</a>
       </nav>
     </div>
   </header>
@@ -28,15 +28,15 @@
     <section class="grid">
       <article class="card">
         <h3>Core idea</h3>
-        <p>Images are converted into DINOv2 feature vectors. A nearest-neighbor ranking builds a graph, and spectral clustering discovers communities from normalized Laplacian eigenvectors.</p>
+        <p>Images are converted into DINOv2 feature vectors. A nearest-neighbor ranking builds a graph, and Laplacian propagation groups images from normalized Laplacian eigenvectors.</p>
       </article>
       <article class="card">
         <h3>Current dataset</h3>
         <p>The Flowers dataset currently has 1360 images and the extracted embedding matrix has shape <code>1360 x 384</code>.</p>
       </article>
       <article class="card">
-        <h3>Spectral clustering</h3>
-        <p>The spectral script computes normalized Laplacian eigenvectors, clusters them with KMeans, and evaluates clusters after optimal label matching.</p>
+        <h3>Laplacian propagation</h3>
+        <p>The propagation script computes normalized Laplacian eigenvectors, clusters them with KMeans, and evaluates clusters after optimal label matching.</p>
       </article>
     </section>
 
@@ -49,21 +49,21 @@
         <tr><td><code>Code/Core/ExtractData/Extract.py</code></td><td>Main extraction pipeline. Collects image paths, runs DINOv2, saves embeddings, computes KNN rankings, and exports graph JSON files.</td></tr>
         <tr><td><code>Code/Core/ExtractData/DinoV2.py</code></td><td>Loads a DINOv2 model from Torch Hub and extracts image features in batches.</td></tr>
         <tr><td><code>Code/Core/ExtractData/Graph.py</code></td><td>Builds KNN NetworkX graphs from ranking arrays and exports graph positions plus edges.</td></tr>
-        <tr><td><code>Code/Core/SpectralClustering/spectral_clustering.py</code></td><td>Computes normalized Laplacian eigenvectors, clusters them with KMeans, and exports spectral clustering results.</td></tr>
-        <tr><td><code>Code/Core/SpectralClustering/Aux.py</code></td><td>Contains plotting helpers for the spectral clustering script.</td></tr>
+        <tr><td><code>Code/Core/Laplaciano_Propagacao/propagando_rotulos.py</code></td><td>Computes normalized Laplacian eigenvectors, clusters them with KMeans, and exports Laplacian propagation results.</td></tr>
+        <tr><td><code>Code/Core/Laplaciano_Propagacao/Aux.py</code></td><td>Contains plotting helpers for the Laplacian propagation script.</td></tr>
         <tr><td><code>DataSets/Emb/</code></td><td>Generated NumPy embedding arrays.</td></tr>
         <tr><td><code>DataSets/Runs/</code></td><td>Generated nearest-neighbor ranking JSON files.</td></tr>
         <tr><td><code>DataSets/Plots/</code></td><td>Generated KNN graph JSON files for visualization.</td></tr>
-        <tr><td><code>DataSets/Spectral/</code></td><td>Generated spectral clusters, embeddings, graph JSON, and PNG plots.</td></tr>
+        <tr><td><code>DataSets/Laplacian/</code></td><td>Generated Laplacian propagation clusters, embeddings, graph JSON, and PNG plots.</td></tr>
       </tbody>
     </table>
 
     <h2>Primary Commands</h2>
     <pre><code>python3 Code/Core/ExtractData/Extract.py
-python3 Code/Core/SpectralClustering/spectral_clustering.py --k 20</code></pre>
+python3 Code/Core/Laplaciano_Propagacao/propagando_rotulos.py --k 20</code></pre>
 
     <div class="note">
-      <strong>Label assumption:</strong> Flowers accuracy currently uses the standard Oxford-17 layout: 17 classes, 80 images per class, ordered by filename. Pass <code>--labels path/to/labels.txt</code> to use an explicit label file.
+      <strong>Label assumption:</strong> Flowers accuracy currently uses the standard Oxford-17 layout: 17 classes, 80 images per class, ordered by filename. The current script controls this with <code>--num-clusters</code> and <code>--samples-per-class</code>.
     </div>
   </main>
 

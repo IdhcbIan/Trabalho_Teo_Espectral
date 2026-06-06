@@ -9,7 +9,7 @@
 
 ---------------------------------
 
-Auxiliary plotting functions for spectral clustering script.
+Auxiliary plotting functions for Laplacian label propagation script.
 
 ---------------------------------
 """
@@ -21,7 +21,7 @@ import numpy as np
 
 def plot_graph_by_cluster(graph, positions, clusters, output_path):
     """
-    Plot the KNN graph colored by spectral cluster.
+    Plot the KNN graph colored by propagated cluster.
     """
     plt.figure(figsize=(15, 10))
     nx.draw_networkx_edges(
@@ -40,8 +40,8 @@ def plot_graph_by_cluster(graph, positions, clusters, output_path):
         linewidths=0.0,
         alpha=0.9,
     )
-    plt.colorbar(nodes, shrink=0.75, label="Spectral cluster")
-    plt.title("Spectral Clustering on KNN Graph")
+    plt.colorbar(nodes, shrink=0.75, label="Laplacian cluster")
+    plt.title("Laplacian Label Propagation on KNN Graph")
     plt.axis("off")
     plt.tight_layout()
     plt.savefig(output_path, dpi=220, bbox_inches="tight")
@@ -72,7 +72,7 @@ def plot_graph_by_correctness(graph, positions, true_labels, mapped_labels, outp
         linewidths=0.0,
         alpha=0.9,
     )
-    plt.title("Spectral Clustering Correctness")
+    plt.title("Laplacian Label Propagation Correctness")
     plt.axis("off")
     plt.tight_layout()
     plt.savefig(output_path, dpi=220, bbox_inches="tight")
@@ -82,7 +82,7 @@ def plot_graph_by_correctness(graph, positions, true_labels, mapped_labels, outp
 
 def plot_first_two_embedding_coordinates(embedding, clusters, output_path):
     """
-    Plot the first two coordinates of the spectral embedding.
+    Plot the first two coordinates of the Laplacian embedding.
     """
     if embedding.shape[1] < 2:
         return
@@ -96,8 +96,8 @@ def plot_first_two_embedding_coordinates(embedding, clusters, output_path):
         s=18,
         alpha=0.9,
     )
-    plt.colorbar(scatter, shrink=0.75, label="Spectral cluster")
-    plt.title("First Two Spectral Embedding Coordinates")
+    plt.colorbar(scatter, shrink=0.75, label="Laplacian cluster")
+    plt.title("First Two Laplacian Embedding Coordinates")
     plt.xlabel("Eigenvector coordinate 1")
     plt.ylabel("Eigenvector coordinate 2")
     plt.tight_layout()

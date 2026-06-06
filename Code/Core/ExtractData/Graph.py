@@ -7,6 +7,7 @@ This is a networkx based aproach and you can also just visualize it
     localy, but loading your graph in the gcnvis system allows you 
     to have a interactie view and also share it with your friends!!
 
+---------------------------------------
 """
 
 import os

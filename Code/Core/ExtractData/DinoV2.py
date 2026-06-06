@@ -4,6 +4,7 @@ from PIL import Image
 from torchvision import transforms
 
 """
+---------------------------------------
 
 ██████╗░██╗███╗░░██╗░█████╗░██╗░░░██╗██████╗░
 ██╔══██╗██║████╗░██║██╔══██╗██║░░░██║╚════██╗
@@ -16,6 +17,7 @@ from torchvision import transforms
 
     Usando o codigo base apra criar uma funcao que extrai features(inferencia) em batch!!
 
+---------------------------------------
 """
 
 

@@ -11,7 +11,7 @@
     <div class="wrap top">
       <div class="eyebrow">Pipeline</div>
       <h1>Data Flow</h1>
-      <p>The project converts image files into embeddings, rankings, graph exports, and spectral clustering outputs.</p>
+      <p>The project converts image files into embeddings, rankings, graph exports, and Laplacian propagation outputs.</p>
     </div>
     <div class="wrap">
       <nav>
@@ -19,7 +19,7 @@
         <a href="data-flow.html">Data Flow</a>
         <a href="extract-data.html">Feature Extraction</a>
         <a href="graph-export.html">Graph Export</a>
-        <a href="spectral.html">Spectral Clustering</a>
+        <a href="spectral.html">Laplacian Propagation</a>
       </nav>
     </div>
   </header>
@@ -33,9 +33,23 @@
       <li>The feature matrix is saved as <code>DataSets/Emb/Flowers_emb.npy</code>.</li>
       <li><code>BallTree</code> queries nearest neighbors for every image and exports rankings to <code>DataSets/Runs/dinov2_vits14_output.json</code>.</li>
       <li><code>Graph.py</code> converts those rankings into KNN graph JSON files in <code>DataSets/Plots</code>.</li>
-      <li><code>spectral_clustering.py</code> reads the ranking JSON, builds a weighted KNN adjacency matrix, computes normalized Laplacian eigenvectors, and runs KMeans in spectral space.</li>
-      <li>Spectral clustering outputs are written to <code>DataSets/Spectral</code>.</li>
+      <li><code>propagando_rotulos.py</code> reads the ranking JSON, builds a weighted KNN adjacency matrix, computes normalized Laplacian eigenvectors, and runs KMeans in Laplacian space.</li>
+      <li>Laplacian propagation outputs are written to <code>DataSets/Laplacian</code>.</li>
     </ol>
+
+    <h2>Codebase Flow</h2>
+    <table>
+      <thead>
+        <tr><th>Stage</th><th>Code</th><th>Output</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Feature extraction</td><td><code>Code/Core/ExtractData/DinoV2.py</code> and <code>Extract.py</code></td><td><code>DataSets/Emb/Flowers_emb.npy</code></td></tr>
+        <tr><td>KNN ranking</td><td><code>Extract.py</code> with <code>BallTree</code></td><td><code>DataSets/Runs/dinov2_vits14_output.json</code></td></tr>
+        <tr><td>Graph visualization export</td><td><code>Code/Core/ExtractData/Graph.py</code></td><td><code>DataSets/Plots/dinov2_vits14_output_*.json</code></td></tr>
+        <tr><td>Laplacian propagation</td><td><code>Code/Core/Laplaciano_Propagacao/propagando_rotulos.py</code></td><td><code>DataSets/Laplacian/laplacian_label_propagation_*</code></td></tr>
+        <tr><td>Laplacian plots</td><td><code>Code/Core/Laplaciano_Propagacao/Aux.py</code></td><td>Cluster, correctness, and Laplacian-coordinate PNG files.</td></tr>
+      </tbody>
+    </table>
 
     <h2>Generated Artifacts</h2>
     <table>
@@ -46,8 +60,8 @@
         <tr><td><code>Flowers_emb.npy</code></td><td>NumPy array</td><td>One DINOv2 feature vector per image.</td></tr>
         <tr><td><code>dinov2_vits14_output.json</code></td><td>JSON list</td><td>For each node, ordered nearest-neighbor indices.</td></tr>
         <tr><td><code>dinov2_vits14_output_20.json</code></td><td>Graph JSON</td><td>KNN graph using 20 outgoing neighbors per image.</td></tr>
-        <tr><td><code>spectral_clustering_k20_c17_clusters.npy</code></td><td>NumPy array</td><td>KMeans cluster assignment from normalized Laplacian eigenvectors.</td></tr>
-        <tr><td><code>spectral_clustering_k20_c17_embedding.npy</code></td><td>NumPy array</td><td>Spectral embedding used by KMeans.</td></tr>
+        <tr><td><code>laplacian_label_propagation_k20_c17_clusters.npy</code></td><td>NumPy array</td><td>KMeans cluster assignment from normalized Laplacian eigenvectors.</td></tr>
+        <tr><td><code>laplacian_label_propagation_k20_c17_embedding.npy</code></td><td>NumPy array</td><td>Laplacian embedding used by KMeans.</td></tr>
       </tbody>
     </table>
   </main>

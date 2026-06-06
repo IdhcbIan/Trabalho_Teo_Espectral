@@ -57913,7 +57913,7 @@
     "num_nodes": 1360,
     "num_edges": 19433,
     "k": 20,
-    "method": "knn_graph_spectral_clustering",
+    "method": "laplaciano_propagacao",
     "eigenvalues": [
       -3.678279155299516e-16,
       -2.337793624209231e-16,
