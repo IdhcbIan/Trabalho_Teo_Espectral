@@ -13,9 +13,19 @@ This is a networkx based aproach and you can also just visualize it
 import os
 import json
 import numpy as np
+from pathlib import Path
 
 
 #-----------------------------------------------
+
+BASE_DIR = Path(__file__).resolve().parent
+CORE_DIR = BASE_DIR.parent
+DATASETS_DIR = CORE_DIR.parent.parent / "DataSets"
+
+#dataset_name = "Flowers"
+dataset_name = "CUB_Cleaned50"
+model_name = "dinov2_vits14"
+output_name = f"{dataset_name}_{model_name}"
 
 """
 This is the main function for the KNN Graph!
@@ -137,5 +147,25 @@ def export_graph_positions(G, pos,model_name, k):
     print(f"Graph exported: {len(export_data['nodes'])} nodes, {total_edges} edges")
     print(f"Saved to: {path}")
     return path
+
+
+if __name__ == "__main__":
+    runs_dir = DATASETS_DIR / "Runs"
+    rks_path = runs_dir / f"{output_name}_output.json"
+
+    with open(rks_path, "r") as f:
+        print("FOUND FILE!!")
+        rankings = json.load(f)
+
+    rankings = np.array(rankings)
+
+    plots_dir = DATASETS_DIR / "Plots"
+    plots_dir.mkdir(exist_ok=True)
+    os.chdir(plots_dir)
+
+    k_list = [10, 20, 30, 40, 60, 80]
+
+    plot_and_export(rankings, k_list, output_name)
+
 
 #------------// End of the program //--------------------------

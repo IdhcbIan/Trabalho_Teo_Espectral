@@ -25,7 +25,7 @@ Importante:
 """
 
 
-import argparse
+import csv
 import json
 from pathlib import Path
 
@@ -43,48 +43,39 @@ from Aux import (
 )
 
 
-"""
-Aqui montamos os caminhos principais do projeto.
-
-ROOT_DIR aponta para a raiz do repositorio.
-DATASETS_DIR aponta para a pasta DataSets, onde ficam:
-
-    Emb/       -> embeddings extraidos
-    Runs/      -> rankings KNN em JSON
-    Laplacian/ -> saidas deste script
-"""
 ROOT_DIR = Path(__file__).resolve().parents[3]
 DATASETS_DIR = ROOT_DIR / "DataSets"
 
+# -------------------------------------------------------------------------
+# Configuracao fixa do experimento.
+# -------------------------------------------------------------------------
+
+#DATASET_NAME = "Flowers"
+DATASET_NAME = "CUB_Cleaned50"
+MODEL_NAME = "dinov2_vits14"
+
+RANKING_PATH = DATASETS_DIR / "Runs" / f"{DATASET_NAME}_{MODEL_NAME}_output.json"
+LABELS_PATH = DATASETS_DIR / DATASET_NAME / "manifest.csv"
+OUTPUT_DIR = DATASETS_DIR / "Laplacian"
+
+K = 20
+NUM_CLUSTERS = 50
+SEED = 42
+
+LAYOUT_K = 0.34
+LAYOUT_ITERATIONS = 180
+LAYOUT_SCALE = 1.35
+
+
+from aux import load_labels_from_manifest
 
 def main():
     """
-    Usamos argparse para deixar alguns parametros configuraveis pelo terminal.
-
-    Exemplo:
-
-        python3 Code/Core/Laplaciano_Propagacao/propagando_rotulos.py --k 20
-
-    Assim conseguimos testar diferentes valores de k, numero de clusters,
-    seeds e parametros do layout sem mudar o codigo toda vez.
+    Executa o experimento configurado nas variaveis fixas no topo do arquivo.
     """
 
-    parser = argparse.ArgumentParser(description="Propagando rotulos no grafo KNN")
-
-    # Argumentos do nosso codigo.
-    parser.add_argument("--ranking", type=Path, default=DATASETS_DIR / "Runs" / "dinov2_vits14_output.json")
-    parser.add_argument("--k", type=int, default=20)
-    parser.add_argument("--num-clusters", type=int, default=17)
-    parser.add_argument("--samples-per-class", type=int, default=80)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--layout-k", type=float, default=0.34)
-    parser.add_argument("--layout-iterations", type=int, default=180)
-    parser.add_argument("--layout-scale", type=float, default=1.35)
-    parser.add_argument("--output-dir", type=Path, default=DATASETS_DIR / "Laplacian")
-    args = parser.parse_args()
-
     # Garante que a pasta de saida existe antes de salvar JSON, NPY e PNG.
-    args.output_dir.mkdir(parents=True, exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     # ---------------------------------------------------------------------
     # 1. Carregando o ranking KNN do JSON.
@@ -92,18 +83,13 @@ def main():
     print("\n[1] Loading nearest-neighbor rankings")
 
     """
-    O arquivo de ranking eh uma matriz em JSON.
+    O arquivo de ranking eh uma lista em JSON.
 
-    Cada linha i representa a imagem i.
-    Dentro dessa linha temos os indices das imagens mais parecidas:
 
-        rankings[i] = [self, vizinho_1, vizinho_2, vizinho_3, ...]
-
-    O primeiro elemento normalmente eh a propria imagem, por isso depois
-    pulamos essa posicao quando construimos o grafo.
+    rankings[i] = [self, vizinho_1, vizinho_2, vizinho_3, ...]
     """
 
-    with open(args.ranking, "r") as f:
+    with open(RANKING_PATH, "r") as f:
         rankings = np.array(json.load(f), dtype=int)
 
     if rankings.ndim != 2:
@@ -113,14 +99,12 @@ def main():
     print(f"Rankings shape: {rankings.shape}")
 
     """
-    Precisamos garantir que o k escolhido existe dentro do ranking.
-
-    Se cada linha tem apenas 100 posicoes, por exemplo, nao podemos pedir
-    k=150, porque nao existem 150 vizinhos salvos para cada imagem.
+    Verificando se o K que escolhemos eh viavel dentro do k maximo no JSON.
     """
-    if args.k >= n_ranked_neighbors:
+
+    if K >= n_ranked_neighbors:
         raise ValueError(
-            f"k={args.k} is too large. Ranking file has only {n_ranked_neighbors} entries per row."
+            f"k={K} is too large. Ranking file has only {n_ranked_neighbors} entries per row."
         )
 
     # ---------------------------------------------------------------------
@@ -157,7 +141,7 @@ def main():
 
     for i in range(n_samples):
         # Pulamos a primeira posicao porque normalmente eh a propria imagem.
-        neighbors = rankings[i, 1 : args.k + 1]
+        neighbors = rankings[i, 1 : K + 1]
 
         for rank, j in enumerate(neighbors, start=1):
             if i == j:
@@ -199,10 +183,10 @@ def main():
     W = W + W.T
 
     """
-    Criamos tambem um objeto NetworkX.
+    Criamos tambem um objeto grafo da biblioteca NetworkX.
 
-    A matriz W eh usada para o Laplaciano e os autovetores.
-    O grafo NetworkX eh usado principalmente para visualizacao e exportacao.
+    Vamos usar a matriz W para o Laplaciano e os autovetores.
+    Usamos o grafo NetworkX eh usado principalmente para visualizacao e exportacao.
     """
 
     graph = nx.Graph()
@@ -287,7 +271,7 @@ def main():
     para pedir os menores autovalores em modulo.
     """
 
-    eigenvalues, U = eigsh(L, k=args.num_clusters, which="SM")
+    eigenvalues, U = eigsh(L, k=NUM_CLUSTERS, which="SM")
 
     """
     Ordenamos os autovalores e autovetores.
@@ -352,34 +336,25 @@ def main():
     """
 
     clusters = KMeans(
-        n_clusters=args.num_clusters,
+        n_clusters=NUM_CLUSTERS,
         n_init=50,
-        random_state=args.seed,
+        random_state=SEED,
     ).fit_predict(Y)
 
     # ---------------------------------------------------------------------
-    # 7. Avaliando os clusters com os rotulos reais das flores.
+    # 7. Avaliando os clusters com os rotulos reais.
     # ---------------------------------------------------------------------
     print("\n[7] Evaluating clusters")
 
     """
     Aqui usamos os rotulos reais apenas para avaliacao.
 
-    A organizacao atual do dataset eh:
-
-        classe 0  -> primeiras 80 imagens
-        classe 1  -> proximas 80 imagens
-        ...
-        classe 16 -> ultimas 80 imagens
-
-    Por isso conseguimos construir labels com np.repeat.
+    Para o CUB_Cleaned50, as classes nao tem sempre o mesmo numero de
+    imagens. Por isso carregamos os rotulos do manifest criado junto com o
+    dataset limpo.
     """
 
-    expected = args.num_clusters * args.samples_per_class
-    if n_samples != expected:
-        raise ValueError(f"Expected {expected} Flowers samples, found {n_samples}.")
-
-    labels = np.repeat(np.arange(args.num_clusters), args.samples_per_class)
+    labels = load_labels_from_manifest(LABELS_PATH, n_samples)
 
     """
     O KMeans escolhe nomes arbitrarios para os clusters.
@@ -400,10 +375,10 @@ def main():
     Ela conta quantas imagens do cluster_id pertencem a class_id.
     """
 
-    confusion = np.zeros((args.num_clusters, args.num_clusters), dtype=int)
+    confusion = np.zeros((NUM_CLUSTERS, NUM_CLUSTERS), dtype=int)
 
-    for cluster_id in range(args.num_clusters):
-        for class_id in range(args.num_clusters):
+    for cluster_id in range(NUM_CLUSTERS):
+        for class_id in range(NUM_CLUSTERS):
             confusion[cluster_id, class_id] = np.sum(
                 (clusters == cluster_id) & (labels == class_id)
             )
@@ -467,11 +442,11 @@ def main():
 
     positions = nx.spring_layout(
         graph,
-        k=args.layout_k,
-        iterations=args.layout_iterations,
-        seed=args.seed,
+        k=LAYOUT_K,
+        iterations=LAYOUT_ITERATIONS,
+        seed=SEED,
         weight="weight",
-        scale=args.layout_scale,
+        scale=LAYOUT_SCALE,
     )
 
     """
@@ -497,7 +472,8 @@ def main():
         "graph_info": {
             "num_nodes": graph.number_of_nodes(),
             "num_edges": graph.number_of_edges(),
-            "k": args.k,
+            "k": K,
+            "dataset": DATASET_NAME,
             "method": "laplaciano_propagacao",
             "eigenvalues": [float(v) for v in eigenvalues],
         },
@@ -523,9 +499,9 @@ def main():
             for neighbor in graph.neighbors(node_id)
         ]
 
-    output_stem = f"laplacian_label_propagation_k{args.k}_c{args.num_clusters}"
+    output_stem = f"{DATASET_NAME}_laplacian_label_propagation_k{K}_c{NUM_CLUSTERS}"
 
-    with open(args.output_dir / f"{output_stem}.json", "w") as f:
+    with open(OUTPUT_DIR / f"{output_stem}.json", "w") as f:
         json.dump(graph_json, f, indent=2)
 
     # ---------------------------------------------------------------------
@@ -552,11 +528,11 @@ def main():
         matriz cluster x classe antes do mapeamento Hungaro.
     """
 
-    np.save(args.output_dir / f"{output_stem}_clusters.npy", clusters)
-    np.save(args.output_dir / f"{output_stem}_mapped_labels.npy", mapped_labels)
-    np.save(args.output_dir / f"{output_stem}_embedding.npy", Y)
-    np.save(args.output_dir / f"{output_stem}_eigenvalues.npy", eigenvalues)
-    np.save(args.output_dir / f"{output_stem}_confusion.npy", confusion)
+    np.save(OUTPUT_DIR / f"{output_stem}_clusters.npy", clusters)
+    np.save(OUTPUT_DIR / f"{output_stem}_mapped_labels.npy", mapped_labels)
+    np.save(OUTPUT_DIR / f"{output_stem}_embedding.npy", Y)
+    np.save(OUTPUT_DIR / f"{output_stem}_eigenvalues.npy", eigenvalues)
+    np.save(OUTPUT_DIR / f"{output_stem}_confusion.npy", confusion)
 
     """
     Tambem salvamos tres figuras:
@@ -570,22 +546,22 @@ def main():
         graph,
         positions,
         clusters,
-        args.output_dir / f"{output_stem}.png",
+        OUTPUT_DIR / f"{output_stem}.png",
     )
     plot_graph_by_correctness(
         graph,
         positions,
         labels,
         mapped_labels,
-        args.output_dir / f"{output_stem}_correctness.png",
+        OUTPUT_DIR / f"{output_stem}_correctness.png",
     )
     plot_first_two_embedding_coordinates(
         Y,
         clusters,
-        args.output_dir / f"{output_stem}_embedding.png",
+        OUTPUT_DIR / f"{output_stem}_embedding.png",
     )
 
-    print(f"Saved to: {args.output_dir}")
+    print(f"Saved to: {OUTPUT_DIR}")
 
 
 if __name__ == "__main__":

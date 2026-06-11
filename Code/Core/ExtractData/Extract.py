@@ -20,6 +20,7 @@ from pathlib import Path
 
 import natsort
 import numpy as np
+import torch
 from sklearn.neighbors import BallTree
 
 from DinoV2 import dinov2_inference
@@ -29,8 +30,10 @@ BASE_DIR = Path(__file__).resolve().parent
 CORE_DIR = BASE_DIR.parent
 DATASETS_DIR = CORE_DIR.parent.parent / "DataSets"
 
-dataset_name = "Flowers"
+#dataset_name = "Flowers"
+dataset_name = "CUB_Cleaned50"
 model_name = "dinov2_vits14"
+output_name = f"{dataset_name}_{model_name}"
 
 # Diretório com as imagens
 #os.chdir(image_dir)
@@ -77,9 +80,13 @@ features = dinov2_inference(model_name, image_paths)
 
 
 # Salvando as features
-emb_path = DATASETS_DIR / "Emb" / f"{dataset_name}_emb.npy"
+emb_dir = DATASETS_DIR / "Emb"
+emb_dir.mkdir(exist_ok=True)
+emb_path = emb_dir / f"{dataset_name}_emb.npy"
+emb_pt_path = emb_dir / f"{dataset_name}_emb.pt"
 
 np.save(emb_path, features)
+torch.save(torch.from_numpy(features), emb_pt_path)
 print("Done!")
 
 
@@ -124,17 +131,17 @@ rks = run_ball_tree(features)
 # Convert NumPy array to JSON and export
 runs_dir = DATASETS_DIR / "Runs"
 runs_dir.mkdir(exist_ok=True)
-with open(runs_dir / f"{model_name}_output.json", "w") as json_file:
+with open(runs_dir / f"{output_name}_output.json", "w") as json_file:
     # Format the JSON with proper indentation for readability
     json.dump(rks.tolist(), json_file, indent=4)
     # Ensure the file is properly closed and flushed
     json_file.flush()
-    print(f"Data successfully exported to Runs/{model_name}_output.json")
+    print(f"Data successfully exported to Runs/{output_name}_output.json")
 
 
 ############// Plotting the graph!! //#####################################
 
-rks_path = runs_dir / f"{model_name}_output.json"
+rks_path = runs_dir / f"{output_name}_output.json"
 with open(rks_path, "r") as f:
     print("FOUND FILE!!")
     rankings = json.load(f)
@@ -150,7 +157,7 @@ from Graph import plot_and_export
 
 k_list = [10, 20, 30, 40, 60, 80]
 
-plot_and_export(rankings, k_list, model_name)
+plot_and_export(rankings, k_list, output_name)
 
 
 #------------// End of the program //--------------------------

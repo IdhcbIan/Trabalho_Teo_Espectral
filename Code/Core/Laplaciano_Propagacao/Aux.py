@@ -104,3 +104,28 @@ def plot_first_two_embedding_coordinates(embedding, clusters, output_path):
     plt.savefig(output_path, dpi=220, bbox_inches="tight")
     plt.show()
     plt.close()
+
+
+
+def load_labels_from_manifest(manifest_path, n_samples):
+    """
+    Carrega os rotulos reais do manifest do dataset limpo.
+
+    O manifest do CUB_Cleaned50 guarda class_id no padrao original do CUB:
+    1, 2, ..., 50. Para comparar com KMeans, convertemos para 0, 1, ..., 49.
+    """
+    labels = []
+
+    with open(manifest_path, newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            labels.append(int(row["class_id"]) - 1)
+
+    labels = np.array(labels, dtype=int)
+
+    if len(labels) != n_samples:
+        raise ValueError(
+            f"Manifest has {len(labels)} labels, but ranking has {n_samples} samples."
+        )
+
+    return labels
