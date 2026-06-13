@@ -67,7 +67,7 @@ LAYOUT_ITERATIONS = 180
 LAYOUT_SCALE = 1.35
 
 
-from aux import load_labels_from_manifest
+from Aux import load_labels_from_manifest
 
 def main():
     """

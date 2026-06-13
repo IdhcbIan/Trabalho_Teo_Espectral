@@ -14,6 +14,7 @@ Auxiliary plotting functions for Laplacian label propagation script.
 ---------------------------------
 """
 
+import csv
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
