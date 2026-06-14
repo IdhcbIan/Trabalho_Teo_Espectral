@@ -1,0 +1,18 @@
+[
+  {
+    "experiment": "DINOv2 CUB50 K=50",
+    "method": "laplacian",
+    "output_stem": "CUB_Cleaned50_dinov2_vits14_laplacian_label_propagation_k50_c50",
+    "accuracy": 0.7957770854967117,
+    "ari": 0.726540242042093,
+    "nmi": 0.8859792476227175
+  },
+  {
+    "experiment": "DINOv2 CUB50",
+    "method": "direct_kmeans",
+    "output_stem": "CUB_Cleaned50_dinov2_vits14_direct_kmeans_c50",
+    "accuracy": 0.7847005884389062,
+    "ari": 0.7195733385328148,
+    "nmi": 0.8802895252983706
+  }
+]

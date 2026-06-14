@@ -1,0 +1,3 @@
+experiment,method,output_stem,accuracy,ari,nmi
+DINOv2 CUB50 K=50,laplacian,CUB_Cleaned50_dinov2_vits14_laplacian_label_propagation_k50_c50,0.7957770854967117,0.726540242042093,0.8859792476227175
+DINOv2 CUB50,direct_kmeans,CUB_Cleaned50_dinov2_vits14_direct_kmeans_c50,0.7847005884389062,0.7195733385328148,0.8802895252983706

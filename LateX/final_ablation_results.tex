@@ -41,9 +41,13 @@ Para o método com grafo, usamos a pipeline:
 L = I - D^{-1/2}WD^{-1/2} \rightarrow \text{autovetores} \rightarrow \text{KMeans}.
 \]
 
-O valor usado para o grafo KNN foi:
+O valor principal usado para o grafo KNN foi:
 \[
 K=20.
+\]
+Também rodamos uma ablação adicional para o CUB50 com:
+\[
+K=50.
 \]
 
 Para a ablação, também rodamos KMeans diretamente sobre as matrizes de embeddings,
@@ -61,6 +65,7 @@ Nesta tabela, ``Acc.'' significa essa acurácia após pareamento ótimo.
 Experimento & Método & Acc. & ARI & NMI\\
 \midrule
 DINOv2 CUB50 & Laplaciano & 0.7480 & 0.6835 & 0.8842\\
+DINOv2 CUB50 & Laplaciano, \(K=50\) & 0.7958 & 0.7265 & 0.8860\\
 DINOv2 CUB50 & KMeans direto & 0.7847 & 0.7196 & 0.8803\\
 \midrule
 DINOv2 Flowers & Laplaciano & 1.0000 & 1.0000 & 1.0000\\
@@ -79,10 +84,12 @@ atinge 100\% nas três métricas, enquanto o KMeans direto fica muito próximo.
 Isso indica que os embeddings do DINOv2 já separam muito bem as classes desse
 dataset.
 
-No CUB50 com DINOv2, o KMeans direto obteve acurácia e ARI maiores, enquanto o
-Laplaciano ficou levemente melhor em NMI. Isso sugere que, para esse subconjunto,
-o espaço DINOv2 direto já contém uma estrutura de classes forte; o grafo KNN não
-melhorou a separação medida por acurácia.
+No CUB50 com DINOv2, o Laplaciano com \(K=20\) ficou abaixo do KMeans direto em
+acurácia e ARI, embora tenha ficado levemente melhor em NMI. Ao aumentar o grafo
+para \(K=50\), o Laplaciano melhora de forma clara: a acurácia sobe de 0.7480
+para 0.7958, superando o KMeans direto, e o ARI sobe de 0.6835 para 0.7265.
+Isso indica que, para CUB50, um grafo mais denso preserva melhor a estrutura de
+classes no espaço DINOv2.
 
 No Flowers com AlexNet, o Laplaciano teve pequena vantagem sobre o KMeans direto:
 a acurácia subiu de 0.6404 para 0.6449, o ARI de 0.4749 para 0.5262 e o NMI de
@@ -110,6 +117,14 @@ Os resultados do Laplaciano com AlexNet foram salvos separadamente em:
     \item \texttt{DataSets/Laplacian/AlexNet/}
 \end{itemize}
 
+Os resultados do Laplaciano CUB50 com \(K=50\) foram salvos separadamente em:
+
+\begin{itemize}
+    \item \texttt{DataSets/Laplacian/CUB\_K50/}
+    \item \texttt{DataSets/Laplacian/FinalAblation/metrics\_cub\_k50.csv}
+    \item \texttt{DataSets/Laplacian/FinalAblation/metrics\_cub\_k50.json}
+\end{itemize}
+
 \section{Figuras do AlexNet}
 
 \begin{figure}[h]
@@ -130,12 +145,34 @@ Os resultados do Laplaciano com AlexNet foram salvos separadamente em:
     \caption{Duas primeiras coordenadas do embedding laplaciano para AlexNet Flowers.}
 \end{figure}
 
+\section{Figuras do CUB50 com K=50}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.92\linewidth]{../DataSets/Laplacian/CUB_K50/CUB_Cleaned50_dinov2_vits14_laplacian_label_propagation_k50_c50.png}
+    \caption{Grafo KNN do CUB50 com \(K=50\), colorido pelos clusters espectrais.}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.92\linewidth]{../DataSets/Laplacian/CUB_K50/CUB_Cleaned50_dinov2_vits14_laplacian_label_propagation_k50_c50_correctness.png}
+    \caption{Grafo KNN do CUB50 com \(K=50\), colorido por acerto/erro após pareamento ótimo.}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.72\linewidth]{../DataSets/Laplacian/CUB_K50/CUB_Cleaned50_dinov2_vits14_laplacian_label_propagation_k50_c50_embedding.png}
+    \caption{Duas primeiras coordenadas do embedding laplaciano para CUB50 com \(K=50\).}
+\end{figure}
+
 \section{Conclusão}
 
 A comparação mostra que o ganho do Laplaciano depende da qualidade e da geometria
 do embedding inicial. Com DINOv2 em Flowers, as classes já estão quase
 perfeitamente separadas. Com AlexNet em Flowers, o Laplaciano melhora as métricas
 em relação ao KMeans direto, indicando que a estrutura de vizinhança do grafo
-ajuda quando o embedding inicial é menos discriminativo.
+ajuda quando o embedding inicial é menos discriminativo. No CUB50, a ablação de
+\(K\) mostra que o valor do número de vizinhos é relevante: \(K=50\) produziu
+resultado melhor que \(K=20\) e também melhor que o KMeans direto.
 
 \end{document}

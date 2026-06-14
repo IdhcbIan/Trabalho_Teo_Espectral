@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2026/dev/Arch Linux) (preloaded format=pdflatex 2025.12.9)  14 JUN 2026 10:15
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2026/dev/Arch Linux) (preloaded format=pdflatex 2025.12.9)  14 JUN 2026 10:45
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -418,65 +418,111 @@ Package hyperref Info: Link coloring ON on input line 24.
 {/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}{/usr/share/texmf-dist/fonts
 /enc/dvips/cm-super/cm-super-t1.enc}]
 <../DataSets/Laplacian/AlexNet/AlexNet_Flowers_laplacian_label_propagation_k20_
-c17.png, id=47, 976.302pt x 714.816pt>
+c17.png, id=51, 976.302pt x 714.816pt>
 File: ../DataSets/Laplacian/AlexNet/AlexNet_Flowers_laplacian_label_propagation
 _k20_c17.png Graphic file (type png)
 <use ../DataSets/Laplacian/AlexNet/AlexNet_Flowers_laplacian_label_propagation_
 k20_c17.png>
 Package pdftex.def Info: ../DataSets/Laplacian/AlexNet/AlexNet_Flowers_laplacia
-n_label_propagation_k20_c17.png  used on input line 117.
+n_label_propagation_k20_c17.png  used on input line 132.
 (pdftex.def)             Requested size: 424.05934pt x 310.48434pt.
+
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
 <../DataSets/Laplacian/AlexNet/AlexNet_Flowers_laplacian_label_propagation_k20_
-c17_correctness.png, id=49, 1076.4945pt x 714.816pt>
+c17_correctness.png, id=53, 1076.4945pt x 714.816pt>
 File: ../DataSets/Laplacian/AlexNet/AlexNet_Flowers_laplacian_label_propagation
 _k20_c17_correctness.png Graphic file (type png)
 <use ../DataSets/Laplacian/AlexNet/AlexNet_Flowers_laplacian_label_propagation_
 k20_c17_correctness.png>
 Package pdftex.def Info: ../DataSets/Laplacian/AlexNet/AlexNet_Flowers_laplacia
-n_label_propagation_k20_c17_correctness.png  used on input line 123.
+n_label_propagation_k20_c17_correctness.png  used on input line 138.
 (pdftex.def)             Requested size: 424.05934pt x 281.58026pt.
-
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
 <../DataSets/Laplacian/AlexNet/AlexNet_Flowers_laplacian_label_propagation_k20_
-c17_embedding.png, id=50, 604.44pt x 496.692pt>
+c17_embedding.png, id=54, 604.44pt x 496.692pt>
 File: ../DataSets/Laplacian/AlexNet/AlexNet_Flowers_laplacian_label_propagation
 _k20_c17_embedding.png Graphic file (type png)
 <use ../DataSets/Laplacian/AlexNet/AlexNet_Flowers_laplacian_label_propagation_
 k20_c17_embedding.png>
 Package pdftex.def Info: ../DataSets/Laplacian/AlexNet/AlexNet_Flowers_laplacia
-n_label_propagation_k20_c17_embedding.png  used on input line 129.
+n_label_propagation_k20_c17_embedding.png  used on input line 144.
 (pdftex.def)             Requested size: 331.87375pt x 272.71155pt.
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+<../DataSets/Laplacian/CUB_K50/CUB_Cleaned50_dinov2_vits14_laplacian_label_prop
+agation_k50_c50.png, id=55, 976.302pt x 714.816pt>
+File: ../DataSets/Laplacian/CUB_K50/CUB_Cleaned50_dinov2_vits14_laplacian_label
+_propagation_k50_c50.png Graphic file (type png)
+<use ../DataSets/Laplacian/CUB_K50/CUB_Cleaned50_dinov2_vits14_laplacian_label_
+propagation_k50_c50.png>
+Package pdftex.def Info: ../DataSets/Laplacian/CUB_K50/CUB_Cleaned50_dinov2_vit
+s14_laplacian_label_propagation_k50_c50.png  used on input line 152.
+(pdftex.def)             Requested size: 424.05934pt x 310.48434pt.
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+<../DataSets/Laplacian/CUB_K50/CUB_Cleaned50_dinov2_vits14_laplacian_label_prop
+agation_k50_c50_correctness.png, id=56, 1076.4945pt x 714.816pt>
+File: ../DataSets/Laplacian/CUB_K50/CUB_Cleaned50_dinov2_vits14_laplacian_label
+_propagation_k50_c50_correctness.png Graphic file (type png)
+<use ../DataSets/Laplacian/CUB_K50/CUB_Cleaned50_dinov2_vits14_laplacian_label_
+propagation_k50_c50_correctness.png>
+Package pdftex.def Info: ../DataSets/Laplacian/CUB_K50/CUB_Cleaned50_dinov2_vit
+s14_laplacian_label_propagation_k50_c50_correctness.png  used on input line 158
+.
+(pdftex.def)             Requested size: 424.05934pt x 281.58026pt.
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+<../DataSets/Laplacian/CUB_K50/CUB_Cleaned50_dinov2_vits14_laplacian_label_prop
+agation_k50_c50_embedding.png, id=57, 603.4545pt x 496.692pt>
+File: ../DataSets/Laplacian/CUB_K50/CUB_Cleaned50_dinov2_vits14_laplacian_label
+_propagation_k50_c50_embedding.png Graphic file (type png)
+<use ../DataSets/Laplacian/CUB_K50/CUB_Cleaned50_dinov2_vits14_laplacian_label_
+propagation_k50_c50_embedding.png>
+Package pdftex.def Info: ../DataSets/Laplacian/CUB_K50/CUB_Cleaned50_dinov2_vit
+s14_laplacian_label_propagation_k50_c50_embedding.png  used on input line 164.
+(pdftex.def)             Requested size: 331.87375pt x 273.1587pt.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
 
 
-[2{/usr/share/texmf-dist/fonts/enc/dvips/cm-super/cm-super-ts1.enc} <../DataSet
-s/Laplacian/AlexNet/AlexNet_Flowers_laplacian_label_propagation_k20_c17.png>]
+[2{/usr/share/texmf-dist/fonts/enc/dvips/cm-super/cm-super-ts1.enc}]
 
 [3 <../DataSets/Laplacian/AlexNet/AlexNet_Flowers_laplacian_label_propagation_k
-20_c17_correctness.png>]
+20_c17.png> <../DataSets/Laplacian/AlexNet/AlexNet_Flowers_laplacian_label_prop
+agation_k20_c17_correctness.png>]
 
 [4 <../DataSets/Laplacian/AlexNet/AlexNet_Flowers_laplacian_label_propagation_k
-20_c17_embedding.png>] (./final_ablation_results.aux)
+20_c17_embedding.png> <../DataSets/Laplacian/CUB_K50/CUB_Cleaned50_dinov2_vits1
+4_laplacian_label_propagation_k50_c50.png>]
+
+[5 <../DataSets/Laplacian/CUB_K50/CUB_Cleaned50_dinov2_vits14_laplacian_label_p
+ropagation_k50_c50_correctness.png> <../DataSets/Laplacian/CUB_K50/CUB_Cleaned5
+0_dinov2_vits14_laplacian_label_propagation_k50_c50_embedding.png>]
+(./final_ablation_results.aux)
  ***********
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
  ***********
 Package rerunfilecheck Info: File `final_ablation_results.out' has not changed.
 
-(rerunfilecheck)             Checksum: E428A961564524467FB66D0C2B0E91F1;778.
+(rerunfilecheck)             Checksum: 672EDA84ED9EAAC94B416AD4A91D8F2E;958.
  ) 
 Here is how much of TeX's memory you used:
- 10449 strings out of 475171
- 159244 string characters out of 5767095
- 576243 words of memory out of 5000000
- 33310 multiletter control sequences out of 15000+600000
+ 10476 strings out of 475171
+ 161629 string characters out of 5767095
+ 575243 words of memory out of 5000000
+ 33332 multiletter control sequences out of 15000+600000
  570199 words of font info for 62 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
- 75i,6n,79p,281b,446s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 75i,7n,79p,305b,446s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/share/
 texmf-dist/fonts/type1/public/amsfonts/cm/cmmi8.pfb></usr/share/texmf-dist/font
 s/type1/public/amsfonts/cm/cmr10.pfb></usr/share/texmf-dist/fonts/type1/public/
@@ -487,10 +533,10 @@ fonts/type1/public/cm-super/sfbx1440.pfb></usr/share/texmf-dist/fonts/type1/pub
 lic/cm-super/sfrm1095.pfb></usr/share/texmf-dist/fonts/type1/public/cm-super/sf
 rm1200.pfb></usr/share/texmf-dist/fonts/type1/public/cm-super/sfrm1728.pfb></us
 r/share/texmf-dist/fonts/type1/public/cm-super/sftt1095.pfb>
-Output written on final_ablation_results.pdf (4 pages, 5163435 bytes).
+Output written on final_ablation_results.pdf (5 pages, 10566563 bytes).
 PDF statistics:
- 131 PDF objects out of 1000 (max. 8388607)
- 93 compressed objects within 1 object stream
- 17 named destinations out of 1000 (max. 500000)
- 64 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 150 PDF objects out of 1000 (max. 8388607)
+ 104 compressed objects within 2 object streams
+ 22 named destinations out of 1000 (max. 500000)
+ 87 words of extra memory for PDF output out of 10000 (max. 10000000)
 
