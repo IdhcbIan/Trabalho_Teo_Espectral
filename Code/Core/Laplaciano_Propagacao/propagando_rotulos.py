@@ -50,16 +50,15 @@ DATASETS_DIR = ROOT_DIR / "DataSets"
 # Configuracao fixa do experimento.
 # -------------------------------------------------------------------------
 
-#DATASET_NAME = "Flowers"
-DATASET_NAME = "CUB_Cleaned50"
-MODEL_NAME = "dinov2_vits14"
+# Active experiment. Comment/uncomment this small block when running by hand.
+#DATASET_NAME = "Flowers"; OUTPUT_NAME = "Flowers_dinov2_vits14"; LABEL_MODE = "fixed"; NUM_CLUSTERS = 17; SAMPLES_PER_CLASS = 80; OUTPUT_DIR = DATASETS_DIR / "Laplacian"
+DATASET_NAME = "CUB_Cleaned50"; OUTPUT_NAME = "CUB_Cleaned50_dinov2_vits14"; LABEL_MODE = "manifest"; NUM_CLUSTERS = 50; SAMPLES_PER_CLASS = None; OUTPUT_DIR = DATASETS_DIR / "Laplacian"
+#DATASET_NAME = "Flowers"; OUTPUT_NAME = "AlexNet_Flowers"; LABEL_MODE = "fixed"; NUM_CLUSTERS = 17; SAMPLES_PER_CLASS = 80; OUTPUT_DIR = DATASETS_DIR / "Laplacian" / "AlexNet"
 
-RANKING_PATH = DATASETS_DIR / "Runs" / f"{DATASET_NAME}_{MODEL_NAME}_output.json"
+RANKING_PATH = DATASETS_DIR / "Runs" / f"{OUTPUT_NAME}_output.json"
 LABELS_PATH = DATASETS_DIR / DATASET_NAME / "manifest.csv"
-OUTPUT_DIR = DATASETS_DIR / "Laplacian"
 
 K = 20
-NUM_CLUSTERS = 50
 SEED = 42
 
 LAYOUT_K = 0.34
@@ -68,6 +67,19 @@ LAYOUT_SCALE = 1.35
 
 
 from Aux import load_labels_from_manifest
+
+
+def load_labels(n_samples):
+    if LABEL_MODE == "manifest":
+        return load_labels_from_manifest(LABELS_PATH, n_samples)
+
+    if LABEL_MODE == "fixed":
+        expected = NUM_CLUSTERS * SAMPLES_PER_CLASS
+        if n_samples != expected:
+            raise ValueError(f"Expected {expected} samples, found {n_samples}.")
+        return np.repeat(np.arange(NUM_CLUSTERS), SAMPLES_PER_CLASS)
+
+    raise ValueError(f"Unknown LABEL_MODE: {LABEL_MODE}")
 
 def main():
     """
@@ -354,7 +366,7 @@ def main():
     dataset limpo.
     """
 
-    labels = load_labels_from_manifest(LABELS_PATH, n_samples)
+    labels = load_labels(n_samples)
 
     """
     O KMeans escolhe nomes arbitrarios para os clusters.
@@ -474,6 +486,7 @@ def main():
             "num_edges": graph.number_of_edges(),
             "k": K,
             "dataset": DATASET_NAME,
+            "output_name": OUTPUT_NAME,
             "method": "laplaciano_propagacao",
             "eigenvalues": [float(v) for v in eigenvalues],
         },
@@ -499,7 +512,7 @@ def main():
             for neighbor in graph.neighbors(node_id)
         ]
 
-    output_stem = f"{DATASET_NAME}_laplacian_label_propagation_k{K}_c{NUM_CLUSTERS}"
+    output_stem = f"{OUTPUT_NAME}_laplacian_label_propagation_k{K}_c{NUM_CLUSTERS}"
 
     with open(OUTPUT_DIR / f"{output_stem}.json", "w") as f:
         json.dump(graph_json, f, indent=2)

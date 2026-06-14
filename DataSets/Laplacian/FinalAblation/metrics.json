@@ -1,0 +1,50 @@
+[
+  {
+    "experiment": "DINOv2 CUB50",
+    "method": "laplacian",
+    "output_stem": "CUB_Cleaned50_dinov2_vits14_laplacian_label_propagation_k20_c50",
+    "accuracy": 0.7480096919349256,
+    "ari": 0.6834788975947161,
+    "nmi": 0.8841902668346175
+  },
+  {
+    "experiment": "DINOv2 CUB50",
+    "method": "direct_kmeans",
+    "output_stem": "CUB_Cleaned50_dinov2_vits14_direct_kmeans_c50",
+    "accuracy": 0.7847005884389062,
+    "ari": 0.7195733385328148,
+    "nmi": 0.8802895252983706
+  },
+  {
+    "experiment": "DINOv2 Flowers",
+    "method": "laplacian",
+    "output_stem": "Flowers_dinov2_vits14_laplacian_label_propagation_k20_c17",
+    "accuracy": 1.0,
+    "ari": 1.0,
+    "nmi": 1.0
+  },
+  {
+    "experiment": "DINOv2 Flowers",
+    "method": "direct_kmeans",
+    "output_stem": "Flowers_dinov2_vits14_direct_kmeans_c17",
+    "accuracy": 0.9963235294117647,
+    "ari": 0.9921443148701083,
+    "nmi": 0.9930161007153947
+  },
+  {
+    "experiment": "AlexNet Flowers",
+    "method": "laplacian",
+    "output_stem": "AlexNet_Flowers_laplacian_label_propagation_k20_c17",
+    "accuracy": 0.6448529411764706,
+    "ari": 0.5261812387781483,
+    "nmi": 0.7209398064037965
+  },
+  {
+    "experiment": "AlexNet Flowers",
+    "method": "direct_kmeans",
+    "output_stem": "AlexNet_Flowers_direct_kmeans_c17",
+    "accuracy": 0.6404411764705882,
+    "ari": 0.4748815248376692,
+    "nmi": 0.6791633067900505
+  }
+]
